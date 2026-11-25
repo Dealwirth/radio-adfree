@@ -31,7 +31,7 @@ options:
   filler_download: true
   filler_max_tracks: 24
   target_player: ""
-  target_service: media_player
+  target_service: "media_player"
   output_bitrate: 192
   port: 8097
 schema:
@@ -46,6 +46,6 @@ schema:
   filler_download: bool
   filler_max_tracks: int(0,60)
   target_player: str
-  target_service: list(media_player|music_assistant)
+  target_service: str
   output_bitrate: int(128,320)
   port: port
