@@ -1,5 +1,5 @@
 name: "Radio AdFree"
-version: "1.1.3"
+version: "1.1.4"
 slug: "radio_adfree"
 description: "Werbefreies Radio Bob & Rock Antenne mit intelligentem Crossfade-Ersatz, Lernsystem und HA-Dashboard."
 url: "https://github.com/Dealwirth/radio-adfree"

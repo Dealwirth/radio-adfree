@@ -367,6 +367,7 @@ class RBDetector(BaseDetector):
         # A gap is active: only close it on a song that is real (ICY confirmed)
         # or that started recently and the block has run long enough.
         if self.gap is not None:
+            self._maybe_news_close(now_wall)
             if newest["wall"] >= self.gap["start_wall"] - 1.0:
                 accept = False
                 dur = now_wall - self.gap["start_wall"]
@@ -553,22 +554,38 @@ class RBDetector(BaseDetector):
             log.info("RB ad replacement start: gap %.1fs, source=%s, lead=%.1fs",
                      dur, g["source"], start + self.cfg.delay - now_mono)
 
-        if self.cfg.keep_news and not g["news_done"]:
-            ad_dt = datetime.datetime.fromtimestamp(g["ad_start_wall"], TZ)
-            hour = ad_dt.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
-            hour_wall = hour.timestamp()
-            if g["ad_start_wall"] < hour_wall <= now_wall:
-                hour_mono = g["ad_start_mono"] + (hour_wall - g["ad_start_wall"])
-                if hour_mono > g["ad_start_mono"] + 5:
-                    self._close_interval(hour_mono, reason="news-hour")
-                    g["news_done"] = True
-                    self.state["detail"] = "RB Werbung bis zur vollen Stunde, dann Nachrichten live"
+        self._maybe_news_close(now_wall)
 
         self.state["ad_remaining"] = self._remaining(
             g["interval"].get("end") if g["interval"] else None,
             g["ad_start_mono"],
             self.learner.predict_duration(self.station["id"]) if self.learner else 150.0,
         )
+
+    def _maybe_news_close(self, now_wall: float) -> bool:
+        g = self.gap
+        if (not g or not self.cfg.keep_news or g.get("news_done")
+                or g.get("interval") is None or not g.get("ad_start_wall")):
+            return False
+        ad_dt = datetime.datetime.fromtimestamp(g["ad_start_wall"], TZ)
+        hour = ad_dt.replace(minute=0, second=0, microsecond=0) + datetime.timedelta(hours=1)
+        hour_wall = hour.timestamp()
+        if not (g["ad_start_wall"] < hour_wall <= now_wall):
+            return False
+        hour_mono = g["ad_start_mono"] + (hour_wall - g["ad_start_wall"])
+        if hour_mono <= g["ad_start_mono"] + 5:
+            return False
+        self._close_interval(hour_mono, reason="news-hour")
+        g["news_done"] = True
+        self.state["detail"] = "Werbung endet zur vollen Stunde, Nachrichten bleiben live"
+        self._set_ad(False, g.get("source", ""), g.get("confidence", 0.0),
+                     g.get("ad_start_wall", 0.0), hour_wall,
+                     g.get("ad_start_mono", 0.0), time.monotonic())
+        self.state["mode"] = "Nachrichten"
+        self._notify()
+        log.info("news-hour: filler stops at %s (%.1fs)", hour.strftime("%H:%M"),
+                 hour_wall - g["ad_start_wall"])
+        return True
 
     def _close_interval(self, end_mono: float, reason: str) -> None:
         g = self.gap

@@ -287,3 +287,31 @@ class CrossfadeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NewsHourCloseTest(unittest.TestCase):
+    def test_news_hour_stops_filler_before_late_next_song(self):
+        clock = FakeClock()
+        clock.at(20, 58, 23)
+        learner = FakeLearner()
+        schedule = AdSchedule()
+        det = RBDetector(type("C", (), {
+            "delay": 6.5, "rb_long_gap": 90.0, "rb_min_gap": 20.0,
+            "rb_aggressive": False, "keep_news": True, "rb_poll": 3.0,
+        })(), schedule, learner)
+        det.set_station({"id": "rb-69", "rb_station_id": "69", "group": "Radio Bob"})
+        start_wall, start_mono = clock.wall, clock.mono
+        iv = schedule.set_open(start_mono, "rb:Test", 0.82)
+        det.gap = {"candidate": True, "source": "rb:Test", "confidence": 0.82,
+                   "start_wall": start_wall, "start_mono": start_mono,
+                   "ad_start_wall": start_wall, "ad_start_mono": start_mono,
+                   "scheduled_start_wall": start_wall, "interval": iv,
+                   "news_done": False}
+        hour = datetime.datetime(2026, 11, 25, 21, 0, 0, tzinfo=TZ).timestamp()
+        self.assertTrue(det._maybe_news_close(hour + 7))
+        self.assertTrue(det.gap["news_done"])
+        self.assertIsNotNone(iv["end"])
+        self.assertEqual(det.state["mode"], "Nachrichten")
+        # idempotent: a second tick does not move the end
+        self.assertFalse(det._maybe_news_close(hour + 20))
+        self.assertIsNotNone(iv["end"])

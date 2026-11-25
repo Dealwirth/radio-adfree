@@ -26,7 +26,7 @@ from .mqtt import MQTTClient
 from .web import StreamHub, create_app
 
 log = logging.getLogger("app")
-VERSION = "1.1.3"
+VERSION = "1.1.4"
 
 
 class App:
@@ -313,7 +313,9 @@ class App:
             "filler": filler,
             "filler_active": ad_active,
             "filler_text": filler_text,
-            "mode": det.get("mode", "Programm"),
+            "mode": ("Nachrichten" if (self.cfg.keep_news
+                     and datetime.datetime.now(TZ).minute < 3)
+                     else det.get("mode", "Programm")),
             "ad": {
                 "active": ad_active,
                 "remaining": round(remaining, 1),
