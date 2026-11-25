@@ -32,9 +32,9 @@ Equal-Power-Crossfade und einer nativen HA-Oberfläche.
 - **Dashboard:** native Lovelace-Karte + eigenständige Player-Seite im
   Add-on-Panel. Radio-Titel und Filler-Titel werden überblendet angezeigt,
   inklusive Werbe-Countdown und Lernstatistik.
-- **Verzögerung:** Ziel 5,5 s; gemessen ~8–9 s gegenüber dem echten Radio
-  (innerhalb der geforderten 5–10 s). Nachrichten kommen dadurch relativ
-  pünktlich.
+- **Verzögerung:** Ziel 5,5 s; gemessen **7,95 s** gegenüber dem echten Radio
+  (Kreuzkorrelation, 50-ms-Raster; innerhalb der geforderten 5–10 s).
+  Nachrichten kommen dadurch relativ pünktlich.
 - **Keine Login-Daten:** nutzt nur öffentliche Streams/APIs, den lokalen
   Supervisor-Token und den HA-MQTT-Broker.
 
@@ -218,7 +218,7 @@ Mit „War keine Werbung“ wird ein Fehlalarm aus der Lernbasis entfernt.
 | RB-Nachrichten-Split | Werbung bis `:00`, Nachrichten live ab `:00` |
 | Unit-Tests | 7/7 grün (Erkennung, Pre-Emption, News-Split, Crossfade) |
 | Simulierter 20-s-Block | Filler ~−19 dB (wie Radio), kein Klick (max. Sprung 0,316 vs. 0,282 Musik) |
-| Delay-Messung | 9,2 s bei Ziel 6,5 s; Ziel 5,5 s → ~8–9 s |
+| Delay-Messung | **7,95 s** bei Ziel 5,5 s (Kreuzkorrelation, Korr. 0,359) |
 | Lautheit | Filler-Gain automatisch 0,54–0,61 bei RMS −14,6 dB |
 
 Die Delay-Messung erfolgt per Kreuzkorrelation der RMS-Hüllkurven von
