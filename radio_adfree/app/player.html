@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Radio AdFree</title>
+<style>
+  :root{
+    --bg:#0d0f12; --card:#171a1f; --card2:#1e2229; --text:#f4f6f8; --muted:#9aa4b2;
+    --line:#2a3038; --accent:#e2001a; --accent2:#ff3b4f; --ok:#39d98a; --warn:#ffb020;
+    --radius:18px; --shadow:0 10px 30px rgba(0,0,0,.35);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,rgba(226,0,26,.18),transparent 60%),var(--bg);color:var(--text);min-height:100vh}
+  .wrap{max-width:920px;margin:0 auto;padding:18px 16px 34px}
+  header{display:flex;align-items:center;gap:12px;margin:6px 0 14px}
+  .brand{display:flex;align-items:center;gap:12px;min-width:0}
+  .logo{width:44px;height:44px;border-radius:13px;background:linear-gradient(140deg,var(--accent),var(--accent2));display:grid;place-items:center;font-weight:800;font-size:18px;box-shadow:0 6px 18px rgba(226,0,26,.35);flex:0 0 auto}
+  h1{font-size:19px;margin:0;letter-spacing:.2px;white-space:nowrap}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .spacer{flex:1}
+  .pill{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:7px 11px;font-size:12px;color:var(--muted);white-space:nowrap}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 4px rgba(57,217,138,.12)}
+  .dot.bad{background:var(--warn);box-shadow:0 0 0 4px rgba(255,176,32,.12)}
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px}
+  @media(max-width:760px){.grid{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--card),var(--card2));border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);margin:0 0 12px;font-weight:700}
+  select,button,input{font:inherit}
+  select{width:100%;background:#101318;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px 12px;outline:none}
+  .row{display:flex;gap:10px;align-items:center}
+  .row.wrap{flex-wrap:wrap}
+  .btn{border:0;border-radius:12px;padding:12px 14px;background:#252b33;color:var(--text);cursor:pointer;transition:.15s transform,.15s background;font-weight:600}
+  .btn:hover{background:#2e3641}
+  .btn:active{transform:scale(.98)}
+  .btn.primary{background:linear-gradient(140deg,var(--accent),var(--accent2));color:#fff;box-shadow:0 8px 22px rgba(226,0,26,.28)}
+  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--muted)}
+  .btn.small{padding:9px 11px;font-size:12px;font-weight:600}
+  .play{width:100%;margin-top:12px;padding:15px 16px;font-size:16px;display:flex;align-items:center;justify-content:center;gap:10px}
+  .icon{width:18px;height:18px;display:inline-block}
+  .vol{display:flex;align-items:center;gap:10px;margin-top:12px;color:var(--muted);font-size:12px}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  .now{display:flex;flex-direction:column;gap:10px}
+  .track{display:flex;align-items:center;gap:12px;background:#101318;border:1px solid var(--line);border-radius:14px;padding:12px}
+  .art{width:44px;height:44px;border-radius:11px;background:linear-gradient(140deg,#2a3038,#171a1f);display:grid;place-items:center;color:var(--muted);font-size:11px;font-weight:700;flex:0 0 auto;border:1px solid var(--line)}
+  .tinfo{min-width:0}
+  .tlabel{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:3px}
+  .ttitle{font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tartist{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .arrow{text-align:center;color:var(--muted);font-size:12px;letter-spacing:.2em}
+  .adbox{margin-top:14px;border-radius:16px;padding:14px;border:1px solid var(--line);background:#101318;position:relative;overflow:hidden}
+  .adbox.on{border-color:rgba(226,0,26,.55);background:linear-gradient(180deg,rgba(226,0,26,.14),rgba(226,0,26,.04))}
+  .adhead{display:flex;align-items:center;gap:9px;font-weight:800;font-size:13px}
+  .badge{font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:999px;background:#252b33;color:var(--muted)}
+  .badge.on{background:var(--accent);color:#fff}
+  .bar{height:7px;border-radius:99px;background:#222831;margin-top:12px;overflow:hidden}
+  .bar > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .5s linear}
+  .admeta{display:flex;justify-content:space-between;gap:10px;color:var(--muted);font-size:11px;margin-top:8px}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .stat{background:#101318;border:1px solid var(--line);border-radius:14px;padding:11px}
+  .stat .v{font-size:19px;font-weight:800;margin-top:2px}
+  .stat .k{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+  .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .foot{margin-top:16px;color:#6f7a88;font-size:11px;line-height:1.5;text-align:center}
+  .foot a{color:#8c98a8}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:#252b33;border:1px solid var(--line);padding:10px 14px;border-radius:12px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:9}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .legend{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:11px;margin-top:10px}
+  .legend .k{width:8px;height:8px;border-radius:2px;background:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="logo" id="logo">RB</div>
+      <div>
+        <h1>Radio AdFree</h1>
+        <div class="sub" id="sub">Werbung raus. Rock rein.</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="pill"><span class="dot" id="dot"></span><span id="conn">verbinde…</span></div>
+    <div class="pill">Verzögerung <b id="delay" style="color:var(--text);margin-left:4px">–</b></div>
+  </header>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Sender</h2>
+      <select id="station"></select>
+      <button class="btn primary play" id="play">
+        <svg class="icon" viewBox="0 0 24 24" fill="currentColor" id="playicon"><path d="M8 5v14l11-7z"/></svg>
+        <span id="playlabel">Radio starten</span>
+      </button>
+      <div class="vol">
+        <span>🔊</span>
+        <input id="vol" type="range" min="0" max="100" value="85">
+        <span id="volv">85%</span>
+      </div>
+      <div class="legend"><span class="k"></span> Live-Radio mit automatischem Werbe-Ersatz</div>
+    </section>
+
+    <section class="card">
+      <h2>Jetzt läuft</h2>
+      <div class="now">
+        <div class="track">
+          <div class="art">RADIO</div>
+          <div class="tinfo">
+            <div class="tlabel">Radio (live)</div>
+            <div class="ttitle" id="rtitle">–</div>
+            <div class="tartist" id="rartist">–</div>
+          </div>
+        </div>
+        <div class="arrow">↓ überblendet ↓</div>
+        <div class="track">
+          <div class="art" style="background:linear-gradient(140deg,var(--accent),var(--accent2));color:#fff">DEIN</div>
+          <div class="tinfo">
+            <div class="tlabel">Dein Song (werbefrei)</div>
+            <div class="ttitle" id="ftitle">–</div>
+            <div class="tartist" id="fartist">–</div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:14px">
+    <h2>Werbung</h2>
+    <div class="adbox" id="adbox">
+      <div class="adhead"><span class="badge" id="adbadge">Programm</span><span id="adlabel">Keine Werbung erkannt</span></div>
+      <div class="bar"><i id="adbar"></i></div>
+      <div class="admeta"><span id="adsource">–</span><span id="adremain">–</span></div>
+    </div>
+    <div class="stats" style="margin-top:12px">
+      <div class="stat"><div class="k">Ersetzt heute</div><div class="v" id="ads">0</div></div>
+      <div class="stat"><div class="k">Gelernte Werbedauer</div><div class="v" id="learned">–</div></div>
+      <div class="stat"><div class="k">Nächster Werbeblock</div><div class="v" id="nextad">–</div></div>
+      <div class="stat"><div class="k">Puffer / Latenz</div><div class="v" id="buffer">–</div></div>
+    </div>
+    <div class="actions">
+      <button class="btn small" id="yes">War Werbung</button>
+      <button class="btn small ghost" id="no">War keine Werbung</button>
+      <button class="btn small ghost" id="test">Test-Werbung (30 s)</button>
+      <button class="btn small ghost" id="refresh">Sender neu verbinden</button>
+    </div>
+  </section>
+
+  <div class="foot">
+    Filler-Musik: Kevin MacLeod (incompetech.com), CC BY 4.0 · Radio Bob &amp; Rock Antenne Streams sind öffentliche, lizenzfreie Webstreams.
+    Dieses Add-on ersetzt Werbung nur für deinen privaten Hörgenuss und speichert keine Audiodaten.
+  </div>
+</div>
+<audio id="audio" preload="none" crossorigin="anonymous"></audio>
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let stations = [], current = null, playing = false, status = null, lastSrc = "";
+
+function fmt(s){ s=Math.max(0,Math.round(s||0)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
+function toast(msg){ const t=$('toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove('show'),2200); }
+function setAccent(group){ document.documentElement.style.setProperty('--accent', group==='Rock Antenne' ? '#f5a623' : '#e2001a'); document.documentElement.style.setProperty('--accent2', group==='Rock Antenne' ? '#ff7a00' : '#ff3b4f'); $('logo').textContent = group==='Rock Antenne' ? 'RA' : 'RB'; }
+
+async function loadStations(){
+  const r = await fetch('api/stations'); const d = await r.json();
+  stations = d.stations; current = d.current;
+  const sel = $('station'); sel.innerHTML='';
+  const groups = {};
+  for (const s of stations) (groups[s.group] ||= []).push(s);
+  for (const [g, list] of Object.entries(groups)) {
+    const og = document.createElement('optgroup'); og.label = g;
+    for (const s of list) { const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; og.appendChild(o); }
+    sel.appendChild(og);
+  }
+  sel.value = current;
+  const cs = stations.find(s=>s.id===current);
+  if (cs) { setAccent(cs.group); $('sub').textContent = cs.group + ' · ' + cs.short; }
+  sel.onchange = async () => {
+    const id = sel.value;
+    const was = playing;
+    await fetch('api/station',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+    current = id; const s = stations.find(x=>x.id===id); if (s) { setAccent(s.group); $('sub').textContent = s.group + ' · ' + s.short; }
+    lastSrc = '';
+    if (was) { audio.pause(); setTimeout(()=>play(), 700); }
+    toast('Sender gewechselt');
+  };
+}
+
+async function poll(){
+  try {
+    const r = await fetch('api/status'); status = await r.json();
+    $('conn').textContent = 'online'; $('dot').classList.remove('bad');
+    const d = status;
+    $('delay').textContent = (d.delay?.actual ?? d.engine?.delay_actual ?? '–') + ' s';
+    $('rtitle').textContent = d.radio?.title || '–';
+    $('rartist').textContent = d.radio?.artist || '–';
+    $('ftitle').textContent = d.filler?.title || '–';
+    $('fartist').textContent = d.filler?.artist || '–';
+    const ad = d.ad || {};
+    const on = !!ad.active;
+    $('adbox').classList.toggle('on', on);
+    $('adbadge').textContent = on ? 'WERBUNG' : 'PROGRAMM';
+    $('adbadge').classList.toggle('on', on);
+    $('adlabel').textContent = on ? 'Werbung erkannt – Ersatzmusik läuft' : (d.ad?.detail || 'Keine Werbung erkannt');
+    $('adsource').textContent = on ? (ad.source || '') : (d.learn?.window_source ? 'Lernquelle: '+d.learn.window_source : '');
+    $('adremain').textContent = on ? ('noch ' + fmt(ad.remaining)) : '';
+    const total = on ? Math.max(1, ad.duration || ad.remaining || 1) : 1;
+    $('adbar').style.width = on ? Math.min(100, 100*(1 - (ad.remaining||0)/total)) + '%' : '0%';
+    $('ads').textContent = d.today?.ads ?? 0;
+    $('learned').textContent = d.learn?.predicted_duration ? Math.round(d.learn.predicted_duration)+' s' : '–';
+    $('nextad').textContent = d.learn?.window || '–';
+    $('buffer').textContent = (d.engine?.buffer_seconds ?? '–') + ' s / ' + (d.engine?.delay_actual ?? '–') + ' s';
+    if (playing && d.urls?.stream && d.urls.stream !== lastSrc) { lastSrc = d.urls.stream; audio.src = lastSrc; audio.play().catch(()=>{}); }
+  } catch(e) { $('conn').textContent='offline'; $('dot').classList.add('bad'); }
+}
+
+const audio = $('audio');
+function updatePlay(){ $('playlabel').textContent = playing ? 'Stopp' : 'Radio starten'; $('playicon').innerHTML = playing ? '<path d="M6 5h4v14H6zM14 5h4v14h-4z"/>' : '<path d="M8 5v14l11-7z"/>'; }
+async function play(){
+  if (!status?.urls?.stream) { await poll(); }
+  audio.src = status.urls.stream + (status.urls.stream.includes('?') ? '&' : '?') + 't=' + Date.now();
+  lastSrc = status.urls.stream;
+  try { await audio.play(); playing = true; updatePlay(); toast('Radio läuft'); }
+  catch(e) { toast('Wiedergabe blockiert – bitte erneut tippen'); }
+}
+$('play').onclick = () => { if (playing) { audio.pause(); playing=false; updatePlay(); } else play(); };
+audio.onpause = () => { if (!audio.ended && playing) { playing=false; updatePlay(); } };
+audio.onplaying = () => { playing=true; updatePlay(); };
+$('vol').oninput = () => { const v=$('vol').value/100; audio.volume=v; $('volv').textContent=$('vol').value+'%'; localStorage.setItem('radioAdFreeVol', v); };
+const sv = localStorage.getItem('radioAdFreeVol'); if (sv!==null) { $('vol').value=Math.round(sv*100); $('volv').textContent=$('vol').value+'%'; audio.volume=parseFloat(sv); }
+$('yes').onclick = async () => { await fetch('api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_ad:true})}); toast('Danke – als Werbung gelernt'); poll(); };
+$('no').onclick = async () => { await fetch('api/feedback',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({is_ad:false})}); toast('Danke – als Nicht-Werbung markiert'); poll(); };
+$('test').onclick = async () => { await fetch('api/simulate_ad',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({seconds:30})}); toast('Test-Werbung in wenigen Sekunden'); };
+$('refresh').onclick = async () => { if (current) await fetch('api/station',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:current})}); lastSrc=''; toast('Sender neu verbunden'); };
+
+loadStations();
+poll(); setInterval(poll, 1500);
+</script>
+</body>
+</html>

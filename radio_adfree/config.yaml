@@ -1,0 +1,51 @@
+name: "Radio AdFree"
+version: "1.0.0"
+slug: "radio_adfree"
+description: "Werbefreies Radio Bob & Rock Antenne mit intelligentem Crossfade-Ersatz, Lernsystem und HA-Dashboard."
+url: "https://github.com/Dealwirth/radio-adfree"
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+host_network: true
+init: false
+ingress: true
+ingress_port: 8097
+panel_icon: mdi:radio
+panel_title: Radio AdFree
+homeassistant_api: true
+hassio_api: true
+watchdog: true
+map:
+  - share:rw
+options:
+  station: "rb-69"
+  delay: 5.5
+  crossfade: 2.5
+  enabled: true
+  replace_ads: true
+  keep_news: true
+  rb_aggressive: false
+  rb_long_gap: 180
+  filler_download: true
+  filler_max_tracks: 24
+  target_player: ""
+  target_service: media_player
+  output_bitrate: 192
+  port: 8097
+schema:
+  station: str
+  delay: float(5,10)
+  crossfade: float(1,5)
+  enabled: bool
+  replace_ads: bool
+  keep_news: bool
+  rb_aggressive: bool
+  rb_long_gap: int(60,300)
+  filler_download: bool
+  filler_max_tracks: int(0,60)
+  target_player: str
+  target_service: list(media_player|music_assistant)
+  output_bitrate: int(128,320)
+  port: port

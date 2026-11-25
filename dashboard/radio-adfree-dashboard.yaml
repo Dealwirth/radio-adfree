@@ -1,0 +1,36 @@
+title: Radio AdFree
+views:
+  - title: Radio
+    path: radio
+    icon: mdi:radio
+    cards:
+      - type: custom:radio-adfree-card
+      - type: entities
+        title: Steuerung
+        entities:
+          - select.radio_adfree_station
+          - switch.radio_adfree_enabled
+          - number.radio_adfree_delay
+      - type: media-control
+        entity: media_player.radio_adfree
+      - type: entities
+        title: Status
+        entities:
+          - sensor.radio_adfree_radio_title
+          - sensor.radio_adfree_radio_artist
+          - sensor.radio_adfree_filler
+          - sensor.radio_adfree_mode
+          - sensor.radio_adfree_ad_remaining
+          - sensor.radio_adfree_ads_today
+          - sensor.radio_adfree_learned_duration
+          - sensor.radio_adfree_next_ad
+          - sensor.radio_adfree_delay
+          - sensor.radio_adfree_buffer
+          - sensor.radio_adfree_stream_path
+      - type: entities
+        title: Feedback & Test
+        entities:
+          - button.radio_adfree_was_ad
+          - button.radio_adfree_was_no_ad
+          - button.radio_adfree_test_ad
+          - button.radio_adfree_reconnect
