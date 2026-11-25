@@ -103,6 +103,7 @@ class FillerLibrary:
                             shutil.copy2(p, dest)
                         except Exception:
                             pass
+        self.rescan()
         if self.cfg.filler_download:
             try:
                 self._download_missing()

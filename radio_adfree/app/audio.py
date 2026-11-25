@@ -142,12 +142,13 @@ class AudioDecoder:
                 self._kill()
             if self._stop.is_set():
                 break
+            time.sleep(0.25)
             if not self._restart.is_set():
-                time.sleep(0.3)
+                time.sleep(0.15)
 
     def _spawn(self) -> None:
         args = [ffmpeg_bin(), "-hide_banner", "-loglevel", "error",
-                "-fflags", "+genpts+discardcorrupt", "-i", "pipe:0",
+                "-fflags", "+genpts+discardcorrupt", "-f", "mp3", "-i", "pipe:0",
                 "-vn", "-ac", str(CH), "-ar", str(SR), "-f", "s16le",
                 "-acodec", "pcm_s16le", "pipe:1"]
         self.proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -158,7 +159,7 @@ class AudioDecoder:
         self.starts += 1
         threading.Thread(target=self._read_pcm, daemon=True).start()
         threading.Thread(target=self._drain_err, daemon=True).start()
-        if self.starts < 6 or self.starts % 50 == 0:
+        if self.starts < 6 or self.starts % 500 == 0:
             log.info("decoder started #%s", self.starts)
 
     def _drain_err(self) -> None:
@@ -168,7 +169,10 @@ class AudioDecoder:
         try:
             for line in proc.stderr:
                 if line.strip():
-                    self.last_error = line.decode("utf-8", "replace").strip()[-300:]
+                    err = line.decode("utf-8", "replace").strip()[-300:]
+                    if not self.last_error:
+                        log.warning("decoder stderr: %s", err)
+                    self.last_error = err
         except Exception:
             pass
 
@@ -287,7 +291,10 @@ class AudioEncoder:
         try:
             for line in proc.stderr:
                 if line.strip():
-                    self.last_error = line.decode("utf-8", "replace").strip()[-300:]
+                    err = line.decode("utf-8", "replace").strip()[-300:]
+                    if not self.last_error:
+                        log.warning("decoder stderr: %s", err)
+                    self.last_error = err
         except Exception:
             pass
 

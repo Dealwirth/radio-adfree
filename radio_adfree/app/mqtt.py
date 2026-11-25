@@ -40,6 +40,9 @@ class MQTTClient:
         if self._started or not self.controller.cfg.mqtt_enabled:
             return
         self._started = True
+        if not os.environ.get("SUPERVISOR_TOKEN"):
+            log.info("no Supervisor token (not an add-on); MQTT disabled")
+            return
         loop = getattr(self.controller, "loop", None)
         if loop is None:
             log.warning("no event loop available; MQTT disabled")
@@ -177,12 +180,6 @@ class MQTTClient:
             "model": "AdFree Radio Proxy",
             "sw_version": self.version,
         }
-
-    def _pub(self, topic: str, payload, retain: bool = True) -> None:
-        if self.client and self.connected:
-            if not isinstance(payload, str):
-                payload = json.dumps(payload, ensure_ascii=False)
-            self.client.publish(topic, payload, retain=retain)
 
     def _sensor(self, key: str, name: str, unit: str = "", icon: str = "mdi:radio",
                 device_class: str = "", state_class: str = "") -> None:
