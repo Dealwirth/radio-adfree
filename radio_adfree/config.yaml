@@ -16,7 +16,7 @@ panel_icon: mdi:radio
 panel_title: Radio AdFree
 homeassistant_api: true
 hassio_api: true
-watchdog: true
+watchdog: "http://[HOST]:[PORT:8097]/status"
 map:
   - share:rw
 options:
