@@ -4,9 +4,11 @@ Werbefreies **RADIO BOB!** und **ROCK ANTENNE** für Home Assistant — mit
 gelerntem Werbe-Erkenner, legalen CC-BY-Instrumental-Fillern, echtem
 Equal-Power-Crossfade und einer nativen HA-Oberfläche.
 
-> Getestet mit echten Werbeblöcken (Rock Antenne `COMMERCIAL`, Radio Bob
-> `:28`/`:58`-Raster inkl. Nachrichten-Split), 7 Unit-Tests, simulierten
-> Werbeunterbrechungen und einer Live-Delay-Messung per Kreuzkorrelation.
+> **Real getestet am 25.11.2026:** echter RB-Werbeblock 20:28 (105 s) im
+> Add-on vollständig ersetzt, Moderation davor live, danach Jimi Hendrix;
+> Delay 5,95 s; 9/9 Unit-Tests; Dashboard + Lovelace-Karte in HA angelegt.
+> Zusätzlich: Rock Antenne `COMMERCIAL`, RB `:28`/`:58`-Raster inkl.
+> Nachrichten-Split und simulierte Blöcke.
 
 ---
 
@@ -90,45 +92,43 @@ Eigene Musik (MP3/FLAC/OGG/WAV) kann zusätzlich unter
 
 ## Dashboard
 
-Die native Karte liegt in `dashboard/radio-adfree-card.js`.
+Das Add-on liefert die native Lovelace-Karte selbst unter `/card.js` aus; in
+dieser Installation sind Dashboard **Radio AdFree** (`/radio-adfree`) und
+Ressource automatisch angelegt:
 
-**Variante A — Add-on-Panel (ohne Karte):** einfach das Panel öffnen.
+- Ressource: `/api/hassio_ingress/<INGRESS>/card.js`, Typ `module`
+- Dashboard: `radio-adfree` → View `radio` → Karte `custom:radio-adfree-card`
 
-**Variante B — Lovelace-Karte:**
+**Manuell (andere HA-Instanz):**
 
-1. Datei `dashboard/radio-adfree-card.js` nach `/config/www/radio-adfree-card.js`
-   kopieren (File Editor oder Samba).
-2. Einstellungen → Dashboards → Ressourcen → **Ressource hinzufügen**
-   - URL: `/local/radio-adfree-card.js`
-   - Typ: **JavaScript-Modul**
-3. Dashboard bearbeiten → Karte hinzufügen → **Manuell**:
+1. `dashboard/radio-adfree-card.js` nach `/config/www/` kopieren.
+2. Einstellungen → Dashboards → Ressourcen → URL `/local/radio-adfree-card.js`,
+   Typ **JavaScript-Modul**.
+3. Karte `type: custom:radio-adfree-card` hinzufügen.
 
-```yaml
-type: custom:radio-adfree-card
-```
+Zusätzlich: Player-Seite `…/player` (Sender, Quellen, Lautstärke, Demo, Live)
+und Beispiel-Dashboard `dashboard/radio-adfree-dashboard.yaml`.
 
-Alternativ liegt ein komplettes Beispiel unter
-`dashboard/radio-adfree-dashboard.yaml`.
-
-Die Karte nutzt die vom Add-on per MQTT-Discovery erzeugten Entitäten:
+Die Karte nutzt die MQTT-Entitäten. In dieser HA-Instanz heißen sie deutsch;
+die Karte löst beide Varianten auf:
 
 ```
-sensor.radio_adfree_radio_title
-sensor.radio_adfree_radio_artist
-sensor.radio_adfree_filler
-sensor.radio_adfree_mode
-sensor.radio_adfree_ad_remaining
-sensor.radio_adfree_ads_today
-sensor.radio_adfree_learned_duration
-sensor.radio_adfree_next_ad
-sensor.radio_ad_free_delay / buffer / stream_path / stream_url
-binary_sensor.radio_adfree_ad_break
-select.radio_adfree_station
-switch.radio_adfree_enabled
-number.radio_adfree_delay
-button.radio_adfree_was_ad / was_no_ad / test_ad / reconnect
-media_player.radio_adfree
+sensor.radio_adfree_radio_titel / _interpret / _segment
+sensor.radio_adfree_status / _ersatzsong / _werbung_verbleibend
+sensor.radio_adfree_werbung_ersetzt_heute / _gelernte_werbedauer
+sensor.radio_adfree_nachster_werbeblock / _puffer / _verzogerung
+sensor.radio_adfree_stream_url / _stream_pfad_ingress
+binary_sensor.radio_adfree_werbung_aktiv
+select.radio_adfree_sender
+switch.radio_adfree_werbung_ersetzen
+number.radio_adfree_verzogerung
+button.radio_adfree_test_werbung / _war_werbung / _war_keine_werbung / _sender_neu_verbinden
 ```
+
+> **Hinweis `media_player`:** Diese HA-Instanz legt die MQTT-`media_player`-
+> Discovery nicht an (Sensoren/Schalter schon). Die Karte spielt daher den
+> Stream direkt im Browser; für Echo/Music Assistant/DLNA dient
+> `sensor.radio_adfree_stream_url` (oder die Option `target_player`).
 
 ---
 
@@ -209,21 +209,38 @@ Mit „War keine Werbung“ wird ein Fehlalarm aus der Lernbasis entfernt.
 
 ## Getestete Ergebnisse
 
+### Real: 25.11.2026, RB-Werbeblock 20:28
+
+| Prüfung | Lokale App (Testlib) | HA-Add-on 1.1.3 |
+|---|---|---|
+| Erkennung | `rb:gelernt`, 125 s (Median) | `rb:Erfahrungswert`, 150 s |
+| Echte Blocklänge | **105 s** | **105 s** (am echten nächsten Song geschlossen) |
+| Filler | „Neo Western“, 84 BPM | „Motivator“, 126 BPM (Radio 117 BPM) |
+| Moderation davor | 5,9 s live | 4,3 s live |
+| Rückkehr | 20:29:52 Programm, Jimi Hendrix | 20:29:52 Programm, Jimi Hendrix |
+| Lernen | count 5, last 105 s | count 1, last 105 s |
+| Delay | 5,5/5,99 s | 5,5/5,95 s |
+
+Audio-Mitschnitt (310 s): Filler von Sekunde 66–171 (105 s), RMS −16…−32 dB,
+Crossfade an beiden Kanten, keine NaN/Clipping; ZCR Filler 0,036 vs. Radio
+0,148 (Testlib-Filler ruhiger; das Add-on wählt aus 23 Tracks „Motivator“
+passend zu 117 BPM / 0,63 Energie).
+
+### Weitere Tests
+
 | Test | Ergebnis |
 |---|---|
-| Senderkatalog | 89 Streams, alle live erreichbar (HTTP 200, Audio) |
-| Rock-Antenne-API | `COMMERCIAL`/`Promotion`/`Cart`/`Live` live beobachtet |
-| RA-Werbetranskript | PayPal, CCON/Messe, Promo „Hello from Heaven“ (Whisper) |
-| RB-Werbetranskript | Simmon Mobile, Teufel, Podcast-Promo + Nachrichten (Whisper) |
-| RB-Nachrichten-Split | Werbung bis `:00`, Nachrichten live ab `:00` |
-| Unit-Tests | 7/7 grün (Erkennung, Pre-Emption, News-Split, Crossfade) |
-| Simulierter 20-s-Block | Filler ~−19 dB (wie Radio), kein Klick (max. Sprung 0,316 vs. 0,282 Musik) |
-| Delay-Messung | **7,95 s** bei Ziel 5,5 s (Kreuzkorrelation, Korr. 0,359) |
-| Lautheit | Filler-Gain automatisch 0,54–0,61 bei RMS −14,6 dB |
+| Senderkatalog | 89 Streams, live erreichbar |
+| Rock-Antenne-API | `COMMERCIAL`/`Promotion`/`Cart`/`Live` beobachtet |
+| RB-Werbeblock 19:58 | nach App-Neustart nur letzte Sekunde ersetzt (bekannt) |
+| RB-Werbeblock 20:28 | **vollständig ersetzt**, siehe oben |
+| RB-Werbeblock 20:58 + Nachrichten 21:00 | siehe Monitor3 (läuft) |
+| Unit-Tests | **9/9 grün** |
+| Delay | **5,95 s** (Add-on), Ziel 5,5 s |
+| Lautheit | Filler-Gain automatisch ~0,65, RMS ~−20 dB |
 
-Die Delay-Messung erfolgt per Kreuzkorrelation der RMS-Hüllkurven von
-Live-Stream und Ausgabe (50-ms-Raster). Durchführung:
-`tests/measure_delay.py` (benötigt einen laufenden Add-on-Stream).
+Die Live-Delay-Messung erfolgt per Kreuzkorrelation der RMS-Hüllkurven von
+Live-Stream und Ausgabe (50-ms-Raster); `tests/measure_delay.py`.
 
 ---
 
@@ -240,6 +257,7 @@ Live-Stream und Ausgabe (50-ms-Raster). Durchführung:
 | `POST /api/simulate_ad` | `{"seconds":20}` Test-Werbeblock |
 | `GET /api/selftest` | Selbsttest (Stream, Puffer, Encoder, API, DB, MQTT) |
 | `GET /player` | Player-Seite |
+| `GET /card.js` | Lovelace-Karte (vom Add-on ausgeliefert) |
 
 ---
 
@@ -266,6 +284,15 @@ Live-Stream und Ausgabe (50-ms-Raster). Durchführung:
   Bei stark abweichendem Sonderprogramm (z. B. langer Moderation genau im
   Werbefenster) kann ein Block verpasst oder zu spät erkannt werden. Die
   Feedback-Buttons und `rb_long_gap`/`rb_aggressive` sind dafür da.
+- **Blocklängen variieren** (real 105 s, gelernt 125 s, Erstschätzung 150 s).
+  Der Detektor schließt am echten nächsten Song und lernt die Dauer; die
+  Erstschätzung ist nur der Startwert.
+- **`media_player.radio_adfree`:** Diese HA-Instanz legt die MQTT-
+  `media_player`-Discovery nicht an (Sensoren/Schalter schon). Die Karte
+  spielt den Stream im Browser; für Echo/Music Assistant/DLNA dient
+  `sensor.radio_adfree_stream_url` (oder `target_player`).
+- **Filler-Bibliothek:** 23 CC-BY-Tracks; Auswahl BPM-/Energie-basiert. Mehr
+  Tracks über `filler_max_tracks` erhöhen die Trefferquote.
 - Die Verzögerung ist bewusst endlich (5–10 s). Nachrichten laufen dadurch
   einige Sekunden versetzt, nicht sekundengenau.
 - Ein laufender Player muss den Stream neu laden, wenn der Add-on-Neustart
@@ -297,3 +324,17 @@ Die Tests decken ab:
 - Kevin MacLeod / Incompetech für die CC-BY-Musik.
 - Radio Bob und Rock Antenne für die öffentlichen Streams und Metadaten.
 - Home Assistant, Music Assistant und der HA-MCP-Community.
+
+---
+
+## Changelog
+
+- **1.1.3** — Karte wird vom Add-on unter `/card.js` ausgeliefert; Karte löst
+  deutsche/englische Entity-IDs auf; Stationsfarbe/Logo; 20:28-Realtest.
+- **1.1.2** — `media_player`-Discovery bereinigt, `CancelledError` beim Stop,
+  Karten-Fixes.
+- **1.1.1** — MQTT über HA-WebSocket (keine Broker-Zugangsdaten),
+  44,1 kHz/Decoder-Loop-Fix.
+- **1.1.0** — Port 18097, WS-MQTT, RB-Detektor-Fixes (geplante Blöcke, Gap,
+  4-min-Lookahead).
+- **1.0.0** — erstes Add-on.
