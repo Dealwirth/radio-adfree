@@ -382,6 +382,10 @@ class RBDetector(BaseDetector):
                     if (newest["wall"] >= sched and now_wall >= sched + 30.0
                             and (now_wall - newest["wall"]) <= 20):
                         accept = True
+                    elif (dur < 15.0 and newest["wall"] <= now_wall + 2.0
+                          and (now_wall - newest["wall"]) <= 20):
+                        # Short gap (station ID between songs), next song real.
+                        accept = True
                 elif dur >= 45 and (now_wall - newest["wall"]) <= 20:
                     # Off-schedule late block without a learned start.
                     accept = True
@@ -486,7 +490,7 @@ class RBDetector(BaseDetector):
                                  if self.learner else (True, "Erfahrungswert"))
         if not g["candidate"]:
             sched = self._scheduled_start(start_dt)
-            nxt = self._next_scheduled_start(start_dt)
+            nxt = self._next_scheduled_start(start_dt, max_ahead=240.0)
             if in_window and dur >= 3.0 and sched is not None:
                 g["scheduled_start_wall"] = sched.timestamp()
                 g["scheduled_start_mono"] = g["start_mono"] + (sched.timestamp() - g["start_wall"])
@@ -495,8 +499,8 @@ class RBDetector(BaseDetector):
                 g["candidate"] = True
                 g["source"] = f"rb:{window_src}"
                 g["confidence"] = 0.82
-            elif nxt is not None:
-                # Long gap before the next block: this is moderation; keep it live.
+            elif nxt is not None and dur >= 3.0:
+                # Gap shortly before the next block: this is moderation; keep it live.
                 g["scheduled_start_wall"] = nxt.timestamp()
                 g["scheduled_start_mono"] = g["start_mono"] + (nxt.timestamp() - g["start_wall"])
                 g["ad_start_wall"] = g["scheduled_start_wall"]

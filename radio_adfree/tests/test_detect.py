@@ -186,6 +186,20 @@ class RBDetectorTest(unittest.TestCase):
         self.assertEqual(datetime.datetime.fromtimestamp(start, TZ).strftime("%H:%M"), "19:58")
         self.assertEqual(datetime.datetime.fromtimestamp(end, TZ).strftime("%H:%M:%S"), "19:59:58")
 
+
+    def test_short_song_transition_five_min_before_block_closes(self):
+        prev = datetime.datetime(2026, 11, 25, 19, 48, 59, tzinfo=TZ)  # +225 -> 19:52:44
+        self.clock.at(19, 52, 45)
+        self.det._icy_title = "RADIO BOB - Livestream National"
+        self.poll([(prev, 225, "Daughtry", "No Surprise")])
+        self.assertIsNotNone(self.det.gap)
+        nxt = datetime.datetime(2026, 11, 25, 19, 52, 45, tzinfo=TZ)
+        self.clock.advance(2)
+        self.poll([(prev, 225, "Daughtry", "No Surprise"),
+                   (nxt, 240, "Kiss", "Heaven's On Fire")])
+        self.assertIsNone(self.det.gap)
+        self.assertEqual(self.schedule.active(), [])
+
     def test_news_hour_is_kept_live(self):
         prev = datetime.datetime(2026, 11, 25, 19, 53, 14, tzinfo=TZ)  # ends 19:57:30
         self.clock.at(19, 57, 35)
