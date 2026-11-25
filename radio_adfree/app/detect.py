@@ -367,7 +367,7 @@ class RBDetector(BaseDetector):
         # A gap is active: only close it on a song that is real (ICY confirmed)
         # or that started recently and the block has run long enough.
         if self.gap is not None:
-            if newest["wall"] > self.gap["start_wall"] + 1:
+            if newest["wall"] >= self.gap["start_wall"] - 1.0:
                 accept = False
                 dur = now_wall - self.gap["start_wall"]
                 sched = self.gap.get("scheduled_start_wall")

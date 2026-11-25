@@ -189,7 +189,7 @@ class RBDetectorTest(unittest.TestCase):
 
     def test_short_song_transition_five_min_before_block_closes(self):
         prev = datetime.datetime(2026, 11, 25, 19, 48, 59, tzinfo=TZ)  # +225 -> 19:52:44
-        self.clock.at(19, 52, 45)
+        self.clock.at(19, 52, 46)
         self.det._icy_title = "RADIO BOB - Livestream National"
         self.poll([(prev, 225, "Daughtry", "No Surprise")])
         self.assertIsNotNone(self.det.gap)
