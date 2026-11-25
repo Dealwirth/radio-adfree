@@ -169,7 +169,7 @@ class MQTTClient:
             self._task.cancel()
             try:
                 await self._task
-            except Exception:
+            except BaseException:
                 pass
 
     def _device(self) -> dict:
@@ -280,8 +280,6 @@ class MQTTClient:
             "source_command_topic": f"{PREFIX}/cmd/station",
             "source_list": names,
             "availability_topic": f"{PREFIX}/availability",
-            "expire_after": 30,
-            "device_class": "speaker",
             "icon": "mdi:radio", "device": self._device(),
         })
 

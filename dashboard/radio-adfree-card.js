@@ -3,7 +3,31 @@
  * Reads the MQTT entities created by the add-on. No external dependencies.
  */
 const P = "radio_adfree";
-const S = (hass, id) => hass.states[id] || { state: "", attributes: {} };
+const IDS = {
+  station: ["select.radio_adfree_sender", "select.radio_adfree_station"],
+  mode: ["sensor.radio_adfree_status", "sensor.radio_adfree_mode"],
+  ad_break: ["binary_sensor.radio_adfree_werbung_aktiv", "binary_sensor.radio_adfree_ad_break"],
+  radio_title: ["sensor.radio_adfree_radio_titel", "sensor.radio_adfree_radio_title"],
+  radio_artist: ["sensor.radio_adfree_radio_interpret", "sensor.radio_adfree_radio_artist"],
+  filler: ["sensor.radio_adfree_ersatzsong", "sensor.radio_adfree_filler"],
+  ad_remaining: ["sensor.radio_adfree_werbung_verbleibend", "sensor.radio_adfree_ad_remaining"],
+  learned: ["sensor.radio_adfree_gelernte_werbedauer", "sensor.radio_adfree_learned_duration"],
+  delay: ["sensor.radio_adfree_verzogerung", "sensor.radio_adfree_delay"],
+  buffer: ["sensor.radio_adfree_puffer", "sensor.radio_adfree_buffer"],
+  enabled: ["switch.radio_adfree_werbung_ersetzen", "switch.radio_adfree_enabled"],
+  ads: ["sensor.radio_adfree_werbung_ersetzt_heute", "sensor.radio_adfree_ads_today"],
+  next_ad: ["sensor.radio_adfree_nachster_werbeblock", "sensor.radio_adfree_next_ad"],
+  stream_path: ["sensor.radio_adfree_stream_pfad_ingress", "sensor.radio_adfree_stream_path"],
+  stream_url: ["sensor.radio_adfree_stream_url"],
+  test: ["button.radio_adfree_test_werbung", "button.radio_adfree_test_ad"],
+  was_ad: ["button.radio_adfree_war_werbung", "button.radio_adfree_was_ad"],
+  was_no: ["button.radio_adfree_war_keine_werbung", "button.radio_adfree_was_no_ad"],
+  reconnect: ["button.radio_adfree_sender_neu_verbinden", "button.radio_adfree_reconnect"],
+};
+const S = (hass, key) => {
+  for (const id of (IDS[key] || [key])) if (hass.states[id]) return hass.states[id];
+  return { state: "", attributes: {} };
+};
 const num = (v) => { const n = parseFloat(v); return Number.isFinite(n) ? n : 0; };
 const fmt = (s) => { s = Math.max(0, Math.round(num(s))); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
 
@@ -35,6 +59,11 @@ class RadioAdFreeCard extends HTMLElement {
 
   _svc(domain, service, data) {
     return this._hass.callService(domain, service, data || {});
+  }
+
+  _eid(key) {
+    const ids = IDS[key] || [key];
+    return ids.find((id) => this._hass.states[id]) || ids[0];
   }
 
   _build() {
@@ -177,21 +206,21 @@ class RadioAdFreeCard extends HTMLElement {
     $("play").onclick = () => this._toggle();
     $("vol").oninput = () => { const v = $("vol").value / 100; this._audio.volume = v; $("volv").textContent = $("vol").value + "%"; localStorage.setItem("rafVol", v); };
     const sv = localStorage.getItem("rafVol"); if (sv !== null) { $("vol").value = Math.round(sv * 100); $("volv").textContent = $("vol").value + "%"; this._audio.volume = parseFloat(sv); }
-    $("select").onchange = (e) => this._svc("select", "select_option", { entity_id: "select.radio_adfree_station", option: e.target.value });
+    $("select").onchange = (e) => this._svc("select", "select_option", { entity_id: this._eid("station"), option: e.target.value });
     $("enable").onclick = () => {
-      const on = S(this._hass, "switch.radio_adfree_enabled").state === "on";
-      this._svc("switch", on ? "turn_off" : "turn_on", { entity_id: "switch.radio_adfree_enabled" });
+      const on = S(this._hass, "enabled").state === "on";
+      this._svc("switch", on ? "turn_off" : "turn_on", { entity_id: this._eid("enabled") });
     };
-    $("test").onclick = () => this._svc("button", "press", { entity_id: "button.radio_adfree_test_ad" });
-    $("yes").onclick = () => this._svc("button", "press", { entity_id: "button.radio_adfree_was_ad" });
-    $("no").onclick = () => this._svc("button", "press", { entity_id: "button.radio_adfree_was_no_ad" });
-    $("reconnect").onclick = () => this._svc("button", "press", { entity_id: "button.radio_adfree_reconnect" });
+    $("test").onclick = () => this._svc("button", "press", { entity_id: this._eid("test") });
+    $("yes").onclick = () => this._svc("button", "press", { entity_id: this._eid("was_ad") });
+    $("no").onclick = () => this._svc("button", "press", { entity_id: this._eid("was_no") });
+    $("reconnect").onclick = () => this._svc("button", "press", { entity_id: this._eid("reconnect") });
   }
 
   _toggle() {
     if (this._playing) { this._audio.pause(); return; }
-    const path = S(this._hass, "sensor.radio_adfree_stream_path").state;
-    const direct = S(this._hass, "sensor.radio_adfree_stream_url").state;
+    const path = S(this._hass, "stream_path").state;
+    const direct = S(this._hass, "stream_url").state;
     let src = path ? window.location.origin + path : direct;
     if (!src) { this._playing = false; this._paintPlay(); return; }
     src += (src.includes("?") ? "&" : "?") + "t=" + Date.now();
@@ -209,19 +238,19 @@ class RadioAdFreeCard extends HTMLElement {
   _update() {
     if (!this.$) return;
     const h = this._hass;
-    const st = S(h, "sensor.radio_adfree_station");
-    const mode = S(h, "sensor.radio_adfree_mode").state || "–";
-    const ad = S(h, "binary_sensor.radio_adfree_ad_break").state === "on";
-    const radioTitle = S(h, "sensor.radio_adfree_radio_title").state || "–";
-    const radioArtist = S(h, "sensor.radio_adfree_radio_artist").state || "–";
-    const filler = S(h, "sensor.radio_adfree_filler").state || "";
+    const st = S(h, "station");
+    const mode = S(h, "mode").state || "–";
+    const ad = S(h, "ad_break").state === "on";
+    const radioTitle = S(h, "radio_title").state || "–";
+    const radioArtist = S(h, "radio_artist").state || "–";
+    const filler = S(h, "filler").state || "";
     const [fa, ft] = filler.includes(" – ") ? filler.split(" – ", 2) : ["", filler];
-    const remaining = num(S(h, "sensor.radio_adfree_ad_remaining").state);
-    const learned = num(S(h, "sensor.radio_adfree_learned_duration").state);
-    const delay = num(S(h, "sensor.radio_adfree_delay").state);
-    const buffer = num(S(h, "sensor.radio_adfree_buffer").state);
+    const remaining = num(S(h, "ad_remaining").state);
+    const learned = num(S(h, "learned").state);
+    const delay = num(S(h, "delay").state);
+    const buffer = num(S(h, "buffer").state);
     const enabled = S(h, "switch.radio_adfree_enabled").state === "on";
-    const avail = S(h, "sensor.radio_adfree_station").state !== "";
+    const avail = S(h, "station").state !== "";
     this.$("hint").style.display = avail ? "none" : "block";
     this.$("station").textContent = st.state || "Radio AdFree";
     this.$("sub").textContent = ad ? "Werbung erkannt · Ersatz läuft" : (enabled ? "Live-Radio · werbefrei" : "Werbung ersetzen ist aus");
@@ -240,18 +269,23 @@ class RadioAdFreeCard extends HTMLElement {
     this.$("adremain").textContent = ad || mode === "Werbung" ? "noch " + fmt(remaining) : "";
     const total = Math.max(1, learned || remaining || 1);
     this.$("adbar").style.width = (ad || mode === "Werbung") ? Math.min(100, 100 * (1 - remaining / total)) + "%" : "0%";
-    this.$("ads").textContent = S(h, "sensor.radio_adfree_ads_today").state || "0";
+    this.$("ads").textContent = S(h, "ads").state || "0";
     this.$("learned").textContent = learned ? Math.round(learned) + " s" : "–";
-    this.$("nextad").textContent = S(h, "sensor.radio_adfree_next_ad").state || "–";
+    this.$("nextad").textContent = S(h, "next_ad").state || "–";
     this.$("buffer").textContent = (buffer || 0).toFixed(1) + " s";
     const sel = this.$("select");
-    const opts = S(h, "select.radio_adfree_station").attributes.options || [];
+    const opts = S(h, "station").attributes.options || [];
     if (opts.length && sel.options.length !== opts.length) {
       sel.innerHTML = "";
       for (const o of opts) { const el = document.createElement("option"); el.value = o; el.textContent = o; sel.appendChild(el); }
     }
-    const cur = S(h, "select.radio_adfree_station").state;
+    const cur = S(h, "station").state;
     if (cur && document.activeElement !== sel && sel.value !== cur) sel.value = cur;
+    const isRA = (st.state || "").includes("Rock Antenne");
+    this.style.setProperty("--ra-accent", isRA ? "#c8102e" : "#e2001a");
+    this.style.setProperty("--ra-accent2", isRA ? "#ff5a68" : "#ff3b4f");
+    if (this.$("logo")) this.$("logo").textContent = isRA ? "RA" : "RB";
+    if (this.$("adsource")) this.$("adsource").textContent = mode;
     this.$("enable").textContent = enabled ? "Werbung ersetzen: AN" : "Werbung ersetzen: AUS";
   }
 }

@@ -51,7 +51,7 @@ def main() -> None:
         await stop.wait()
         try:
             await app.mqtt.stop_async()
-        except Exception:
+        except BaseException:
             pass
         await runner_app.cleanup()
 
