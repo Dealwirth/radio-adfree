@@ -49,6 +49,10 @@ def main() -> None:
             except NotImplementedError:
                 pass
         await stop.wait()
+        try:
+            await app.mqtt.stop_async()
+        except Exception:
+            pass
         await runner_app.cleanup()
 
     try:

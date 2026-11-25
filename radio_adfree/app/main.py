@@ -84,6 +84,7 @@ class App:
         self.engine.stop()
         try:
             self.mqtt._pub("radio_adfree/availability", "offline")
+            self.mqtt.stop()
         except Exception:
             pass
 

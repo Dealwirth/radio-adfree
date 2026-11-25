@@ -1,13 +1,14 @@
 """MQTT discovery and state publishing (Home Assistant native entities, no login data)."""
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import threading
+import os
 
-import paho.mqtt.client as mqtt
+import aiohttp
 
-from . import ha, stations
+from . import stations
 
 log = logging.getLogger("mqtt")
 
@@ -16,64 +17,157 @@ DISCOVERY = "homeassistant"
 
 
 class MQTTClient:
+    """Discovery/state publisher using Home Assistant's MQTT WebSocket API.
+
+    The MQTT integration owns the broker connection, so the add-on needs no
+    broker host/user/password. Publishing uses the standard ``call_service``
+    command (``mqtt.publish``); commands are received via ``mqtt/subscribe``.
+    """
+
     def __init__(self, controller, version: str):
         self.controller = controller
         self.version = version
-        self.client: mqtt.Client | None = None
         self.connected = False
         self._started = False
-        self._state = {}
-        self._lock = threading.Lock()
+        self._state: dict = {}
+        self._ws = None
+        self._session = None
+        self._task = None
+        self._stop = False
+        self._msg_id = 0
 
     def start(self) -> None:
         if self._started or not self.controller.cfg.mqtt_enabled:
             return
         self._started = True
-        threading.Thread(target=self._run, daemon=True).start()
-
-    def _run(self) -> None:
-        cfg = self.controller.cfg
-        host, port, user, pw = cfg.mqtt_host, cfg.mqtt_port, cfg.mqtt_user, cfg.mqtt_password
-        svc = ha.mqtt_service()
-        if svc:
-            host = svc.get("host", host)
-            port = int(svc.get("port", port))
-            user = svc.get("username", user)
-            pw = svc.get("password", pw)
-        if not host:
-            log.warning("no MQTT service available; MQTT disabled")
+        loop = getattr(self.controller, "loop", None)
+        if loop is None:
+            log.warning("no event loop available; MQTT disabled")
             return
-        cid = f"radio_adfree_{self.version}"
-        client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=cid, clean_session=True)
-        if user:
-            client.username_pw_set(user, pw)
-        client.will_set(f"{PREFIX}/availability", "offline", retain=True)
-        client.on_connect = self._on_connect
-        client.on_message = self._on_message
-        client.on_disconnect = self._on_disconnect
-        self.client = client
-        while True:
+        self._task = loop.create_task(self._run())
+
+    async def _run(self) -> None:
+        backoff = 1.0
+        while not self._stop:
             try:
-                client.connect(host, port, keepalive=45)
-                client.loop_forever(retry_first_connection=True)
+                self._session = aiohttp.ClientSession()
+                self._ws = await self._session.ws_connect(
+                    "ws://supervisor/core/websocket", heartbeat=30)
+                await self._ws.receive_json()  # auth_required
+                await self._ws.send_json({
+                    "type": "auth",
+                    "access_token": os.environ.get("SUPERVISOR_TOKEN", ""),
+                })
+                auth = await self._ws.receive_json()
+                if auth.get("type") != "auth_ok":
+                    raise RuntimeError(f"auth failed: {auth}")
+                self.connected = True
+                backoff = 1.0
+                log.info("MQTT via HA WebSocket connected")
+                self._publish_discovery()
+                await self._ws_send({"type": "mqtt/subscribe",
+                                     "topic": f"{PREFIX}/cmd/#", "qos": 0})
+                await self._publish(f"{PREFIX}/availability", "online", True)
+                if self._state:
+                    await self._publish_values(self._state)
+                async for msg in self._ws:
+                    if msg.type != aiohttp.WSMsgType.TEXT:
+                        continue
+                    try:
+                        data = json.loads(msg.data)
+                    except Exception:
+                        continue
+                    if data.get("type") == "event":
+                        ev = data.get("event") or {}
+                        topic = ev.get("topic")
+                        if topic:
+                            self._on_message(topic, str(ev.get("payload", "")))
+            except asyncio.CancelledError:
+                break
             except Exception as exc:
-                log.warning("MQTT connection failed: %s", exc)
-                threading.Event().wait(10)
+                log.warning("HA WS MQTT: %s", exc)
+            finally:
+                self.connected = False
+                try:
+                    if self._ws:
+                        await self._ws.close()
+                except Exception:
+                    pass
+                try:
+                    if self._session:
+                        await self._session.close()
+                except Exception:
+                    pass
+                self._ws = None
+                self._session = None
+            if not self._stop:
+                await asyncio.sleep(backoff)
+                backoff = min(30.0, backoff * 2)
 
-    def _on_disconnect(self, client, userdata, flags, rc, properties=None):
-        self.connected = False
-        log.warning("MQTT disconnected (%s)", rc)
-
-    def _on_connect(self, client, userdata, flags, rc, properties=None):
-        if rc != 0:
-            log.warning("MQTT connect refused: %s", rc)
+    async def _ws_send(self, payload: dict) -> None:
+        if not self._ws:
             return
-        self.connected = True
-        log.info("MQTT connected")
-        self._publish_discovery()
-        client.subscribe(f"{PREFIX}/cmd/#", qos=0)
-        client.publish(f"{PREFIX}/availability", "online", retain=True)
-        self.publish_state(self._state)
+        self._msg_id += 1
+        payload["id"] = self._msg_id
+        await self._ws.send_json(payload)
+
+    async def _publish(self, topic: str, payload, retain: bool = True) -> None:
+        if not self._ws:
+            return
+        if not isinstance(payload, str):
+            payload = json.dumps(payload, ensure_ascii=False)
+        await self._ws_send({
+            "type": "call_service", "domain": "mqtt", "service": "publish",
+            "service_data": {"topic": topic, "payload": payload,
+                             "qos": 0, "retain": retain},
+        })
+
+    async def _publish_values(self, status: dict) -> None:
+        try:
+            values = self._values(status)
+            for k, v in values.items():
+                await self._publish(f"{PREFIX}/state/{k}", v, True)
+        except Exception:
+            log.exception("state publish failed")
+
+    def _pub(self, topic: str, payload, retain: bool = True) -> None:
+        if not self.connected:
+            return
+        if not isinstance(payload, str):
+            payload = json.dumps(payload, ensure_ascii=False)
+        try:
+            asyncio.get_running_loop().create_task(self._publish(topic, payload, retain))
+        except RuntimeError:
+            loop = getattr(self.controller, "loop", None)
+            if loop is not None:
+                try:
+                    asyncio.run_coroutine_threadsafe(
+                        self._publish(topic, payload, retain), loop)
+                except Exception:
+                    pass
+
+    def stop(self) -> None:
+        self._stop = True
+        loop = getattr(self.controller, "loop", None)
+        if loop is not None and self._task is not None:
+            try:
+                loop.call_soon_threadsafe(self._task.cancel)
+            except Exception:
+                pass
+
+    async def stop_async(self) -> None:
+        self._stop = True
+        if self.connected:
+            try:
+                await self._publish(f"{PREFIX}/availability", "offline", True)
+            except Exception:
+                pass
+        if self._task is not None:
+            self._task.cancel()
+            try:
+                await self._task
+            except Exception:
+                pass
 
     def _device(self) -> dict:
         return {
@@ -96,6 +190,7 @@ class MQTTClient:
             "name": name, "unique_id": f"radio_adfree_{key}",
             "state_topic": f"{PREFIX}/state/{key}",
             "availability_topic": f"{PREFIX}/availability",
+            "expire_after": 30,
             "icon": icon, "device": self._device(),
         }
         if unit:
@@ -128,6 +223,7 @@ class MQTTClient:
             "state_topic": f"{PREFIX}/state/ad_break",
             "payload_on": "ON", "payload_off": "OFF",
             "availability_topic": f"{PREFIX}/availability",
+            "expire_after": 30,
             "icon": "mdi:advertisements", "device": self._device(),
         })
 
@@ -138,6 +234,7 @@ class MQTTClient:
             "state_topic": f"{PREFIX}/state/station_name",
             "options": names,
             "availability_topic": f"{PREFIX}/availability",
+            "expire_after": 30,
             "icon": "mdi:radio", "device": self._device(),
         })
         self._pub(f"{DISCOVERY}/switch/radio_adfree/enabled/config", {
@@ -146,6 +243,7 @@ class MQTTClient:
             "state_topic": f"{PREFIX}/state/enabled",
             "payload_on": "ON", "payload_off": "OFF",
             "availability_topic": f"{PREFIX}/availability",
+            "expire_after": 30,
             "icon": "mdi:advertisements-off", "device": self._device(),
         })
         self._pub(f"{DISCOVERY}/number/radio_adfree/delay/config", {
@@ -154,6 +252,7 @@ class MQTTClient:
             "state_topic": f"{PREFIX}/state/delay",
             "min": 5, "max": 10, "step": 0.5, "unit_of_measurement": "s",
             "availability_topic": f"{PREFIX}/availability",
+            "expire_after": 30,
             "icon": "mdi:timer-sand", "device": self._device(),
         })
         for key, name, icon in [
@@ -184,55 +283,56 @@ class MQTTClient:
             "source_command_topic": f"{PREFIX}/cmd/station",
             "source_list": names,
             "availability_topic": f"{PREFIX}/availability",
+            "expire_after": 30,
             "device_class": "speaker",
             "icon": "mdi:radio", "device": self._device(),
         })
 
+    def _values(self, status: dict) -> dict:
+        radio = status.get("radio", {})
+        ad = status.get("ad", {})
+        learn = status.get("learn", {})
+        today = status.get("today", {})
+        engine = status.get("engine", {})
+        st = status.get("station_info", {})
+        urls = status.get("urls", {})
+        enabled = "ON" if status.get("enabled") else "OFF"
+        return {
+            "radio_title": radio.get("title", ""),
+            "radio_artist": radio.get("artist", ""),
+            "radio_class": radio.get("class", ""),
+            "filler": status.get("filler_text", ""),
+            "mode": status.get("mode", ""),
+            "ad_remaining": round(float(ad.get("remaining", 0)), 1),
+            "ads_today": int(today.get("ads", 0)),
+            "learned_duration": round(float(learn.get("predicted_duration", 0)), 1),
+            "next_ad": learn.get("window") or "",
+            "delay": round(float(status.get("delay", {}).get("target", 0)), 1),
+            "buffer": round(float(engine.get("buffer_seconds", 0)), 1),
+            "stream_url": urls.get("direct", ""),
+            "stream_path": urls.get("stream", ""),
+            "station": st.get("name", status.get("station", "")),
+            "station_name": st.get("label", ""),
+            "last_ad": round(float(learn.get("last_duration", 0)), 1),
+            "enabled": enabled,
+            "ad_break": "ON" if ad.get("active") else "OFF",
+            "player": "playing" if status.get("enabled") else "off",
+            "volume": round(float(status.get("volume", 0.8)), 2),
+        }
+
     def publish_state(self, status: dict) -> None:
-        if not self.connected:
-            self._state = status
-            return
         self._state = status
+        if not self.connected:
+            return
         try:
-            radio = status.get("radio", {})
-            ad = status.get("ad", {})
-            learn = status.get("learn", {})
-            today = status.get("today", {})
-            engine = status.get("engine", {})
-            st = status.get("station_info", {})
-            urls = status.get("urls", {})
-            enabled = "ON" if status.get("enabled") else "OFF"
-            values = {
-                "radio_title": radio.get("title", ""),
-                "radio_artist": radio.get("artist", ""),
-                "radio_class": radio.get("class", ""),
-                "filler": status.get("filler_text", ""),
-                "mode": status.get("mode", ""),
-                "ad_remaining": round(float(ad.get("remaining", 0)), 1),
-                "ads_today": int(today.get("ads", 0)),
-                "learned_duration": round(float(learn.get("predicted_duration", 0)), 1),
-                "next_ad": learn.get("window") or "",
-                "delay": round(float(status.get("delay", {}).get("target", 0)), 1),
-                "buffer": round(float(engine.get("buffer_seconds", 0)), 1),
-                "stream_url": urls.get("direct", ""),
-                "stream_path": urls.get("stream", ""),
-                "station": st.get("name", status.get("station", "")),
-                "station_name": st.get("label", ""),
-                "last_ad": round(float(learn.get("last_duration", 0)), 1),
-                "enabled": enabled,
-                "ad_break": "ON" if ad.get("active") else "OFF",
-                "player": "playing" if status.get("enabled") else "off",
-                "volume": round(float(status.get("volume", 0.8)), 2),
-            }
-            for k, v in values.items():
+            for k, v in self._values(status).items():
                 self._pub(f"{PREFIX}/state/{k}", v)
         except Exception:
             log.exception("state publish failed")
 
-    def _on_message(self, client, userdata, msg):
+    def _on_message(self, topic: str, payload: str) -> None:
         try:
-            payload = msg.payload.decode("utf-8", "replace")
-            key = msg.topic.rsplit("/", 1)[-1]
+            key = topic.rsplit("/", 1)[-1]
             log.info("MQTT command %s = %s", key, payload)
             self.controller.handle_mqtt_command(key, payload)
         except Exception:

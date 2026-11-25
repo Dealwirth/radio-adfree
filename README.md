@@ -73,7 +73,7 @@ damit es sofort funktioniert.
 | `target_player` | `""` | Optional: `media_player.…` (z. B. Echo/DLNA) |
 | `target_service` | `media_player` | `media_player` oder `music_assistant` |
 | `output_bitrate` | `192` | MP3-Bitrate des Ausgabestreams |
-| `port` | `8097` | Interner HTTP-Port (Ingress) |
+| `port` | `18097` | Interner HTTP-Port (Ingress; fest auf 18097 abgestimmt) |
 
 Eigene Musik (MP3/FLAC/OGG/WAV) kann zusätzlich unter
 `/share/radio_adfree/music/` abgelegt werden. Sie wird automatisch erkannt.

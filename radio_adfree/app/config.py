@@ -38,7 +38,7 @@ class Config:
     target_service: str = "media_player"
     volume: float = 0.8
     output_bitrate: int = 192
-    port: int = 8097
+    port: int = 18097
     token: str = ""
     mqtt_enabled: bool = True
     mqtt_host: str = ""

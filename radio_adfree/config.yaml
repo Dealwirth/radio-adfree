@@ -1,5 +1,5 @@
 name: "Radio AdFree"
-version: "1.0.0"
+version: "1.1.0"
 slug: "radio_adfree"
 description: "Werbefreies Radio Bob & Rock Antenne mit intelligentem Crossfade-Ersatz, Lernsystem und HA-Dashboard."
 url: "https://github.com/Dealwirth/radio-adfree"
@@ -11,12 +11,12 @@ boot: auto
 host_network: true
 init: false
 ingress: true
-ingress_port: 8097
+ingress_port: 18097
 panel_icon: mdi:radio
 panel_title: Radio AdFree
 homeassistant_api: true
 hassio_api: true
-watchdog: "http://[HOST]:[PORT:8097]/status"
+watchdog: "http://[HOST]:[PORT:18097]/status"
 map:
   - share:rw
 options:
@@ -33,7 +33,7 @@ options:
   target_player: ""
   target_service: "media_player"
   output_bitrate: 192
-  port: 8097
+  port: 18097
 schema:
   station: str
   delay: float(5,10)
