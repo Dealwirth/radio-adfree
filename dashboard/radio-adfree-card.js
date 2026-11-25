@@ -249,7 +249,7 @@ class RadioAdFreeCard extends HTMLElement {
     const learned = num(S(h, "learned").state);
     const delay = num(S(h, "delay").state);
     const buffer = num(S(h, "buffer").state);
-    const enabled = S(h, "switch.radio_adfree_enabled").state === "on";
+    const enabled = S(h, "enabled").state === "on";
     const avail = S(h, "station").state !== "";
     this.$("hint").style.display = avail ? "none" : "block";
     this.$("station").textContent = st.state || "Radio AdFree";

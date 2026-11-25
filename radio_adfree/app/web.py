@@ -156,12 +156,19 @@ def create_app(controller, hub: StreamHub) -> web.Application:
             "Cache-Control": "no-cache",
         })
 
+    async def card_js(request):
+        js = (HERE / "card.js").read_text()
+        return web.Response(text=js, content_type="application/javascript", headers={
+            "Cache-Control": "no-cache",
+        })
+
     async def index(request):
         raise web.HTTPFound("player")
 
     for method, path, handler in [
         ("GET", "/", index),
         ("GET", "/player", player),
+        ("GET", "/card.js", card_js),
         ("GET", "/stream.mp3", stream),
         ("GET", "/status", status),
         ("GET", "/api/status", status),
