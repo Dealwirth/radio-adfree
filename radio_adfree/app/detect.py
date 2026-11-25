@@ -370,11 +370,20 @@ class RBDetector(BaseDetector):
             if newest["wall"] > self.gap["start_wall"] + 1:
                 accept = False
                 dur = now_wall - self.gap["start_wall"]
+                sched = self.gap.get("scheduled_start_wall")
                 if not self.gap["candidate"]:
                     accept = True
                 elif self._match_icy(newest):
                     accept = True
+                elif sched:
+                    # A song that starts at/after the learned block and is seen
+                    # fresh (<=20 s) can be the real next song, but never the
+                    # first 30 s of the block (those are pre-empted entries).
+                    if (newest["wall"] >= sched and now_wall >= sched + 30.0
+                            and (now_wall - newest["wall"]) <= 20):
+                        accept = True
                 elif dur >= 45 and (now_wall - newest["wall"]) <= 20:
+                    # Off-schedule late block without a learned start.
                     accept = True
                 if accept:
                     self._finish_gap(newest["wall"], now_mono)

@@ -155,6 +155,37 @@ class RBDetectorTest(unittest.TestCase):
         self.assertEqual(datetime.datetime.fromtimestamp(start, TZ).strftime("%H:%M"), "18:28")
         self.assertEqual(datetime.datetime.fromtimestamp(end, TZ).strftime("%H:%M:%S"), "18:29:38")
 
+
+    def test_pre_ad_song_45s_before_58_does_not_close_block(self):
+        prev = datetime.datetime(2026, 11, 25, 19, 52, 0, tzinfo=TZ)  # +287 -> 19:56:47
+        self.clock.at(19, 56, 50)
+        self.det._icy_title = "Daughtry - No Surprise"
+        self.poll([(prev, 287, "Daughtry", "No Surprise")])
+        self.assertIsNotNone(self.det.gap)
+        self.assertEqual(datetime.datetime.fromtimestamp(
+            self.det.gap["scheduled_start_wall"], TZ).strftime("%H:%M"), "19:58")
+        # API lists a song 43 s into the pre-ad moderation; ICY still Daughtry.
+        pre = datetime.datetime(2026, 11, 25, 19, 57, 30, tzinfo=TZ)
+        self.clock.advance(42)  # 19:57:32
+        self.poll([(prev, 287, "Daughtry", "No Surprise"), (pre, 240, "Kiss", "Heaven's On Fire")])
+        self.assertIsNotNone(self.det.gap)
+        self.assertEqual(self.schedule.active(), [])
+        # 19:58:05: the learned block starts.
+        self.clock.advance(33)
+        self.poll([(prev, 287, "Daughtry", "No Surprise"), (pre, 240, "Kiss", "Heaven's On Fire")])
+        self.assertEqual(len(self.schedule.active()), 1)
+        # 19:59:58: ICY confirms the real next song -> close and record.
+        real = datetime.datetime(2026, 11, 25, 19, 59, 58, tzinfo=TZ)
+        self.clock.advance(113)
+        self.det._icy_title = "Kiss - Heaven's On Fire"
+        self.poll([(prev, 287, "Daughtry", "No Surprise"),
+                   (pre, 240, "Kiss", "Heaven's On Fire"),
+                   (real, 240, "Kiss", "Heaven's On Fire")])
+        self.assertIsNone(self.det.gap)
+        start, end, _, _ = self.learner.records[0]
+        self.assertEqual(datetime.datetime.fromtimestamp(start, TZ).strftime("%H:%M"), "19:58")
+        self.assertEqual(datetime.datetime.fromtimestamp(end, TZ).strftime("%H:%M:%S"), "19:59:58")
+
     def test_news_hour_is_kept_live(self):
         prev = datetime.datetime(2026, 11, 25, 19, 53, 14, tzinfo=TZ)  # ends 19:57:30
         self.clock.at(19, 57, 35)
