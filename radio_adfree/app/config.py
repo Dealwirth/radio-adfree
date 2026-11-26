@@ -16,7 +16,7 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 @dataclass
 class Config:
     station: str = "rb-69"
-    delay: float = 5.5
+    delay: float = 5.0
     crossfade: float = 2.5
     enabled: bool = True
     replace_ads: bool = True
@@ -37,7 +37,9 @@ class Config:
     target_player: str = ""
     target_service: str = "media_player"
     volume: float = 0.8
-    output_bitrate: int = 192
+    output_bitrate: int = 320
+    record_ads: bool = True
+    ads_dir: str = "/data/ads"
     port: int = 18097
     token: str = ""
     mqtt_enabled: bool = True

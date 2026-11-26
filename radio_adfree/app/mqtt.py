@@ -243,15 +243,6 @@ class MQTTClient:
             "expire_after": 30,
             "icon": "mdi:advertisements-off", "device": self._device(),
         })
-        self._pub(f"{DISCOVERY}/number/radio_adfree/delay/config", {
-            "name": "Verzögerung", "unique_id": "radio_adfree_delay_set",
-            "command_topic": f"{PREFIX}/cmd/delay",
-            "state_topic": f"{PREFIX}/state/delay",
-            "min": 5, "max": 10, "step": 0.5, "unit_of_measurement": "s",
-            "availability_topic": f"{PREFIX}/availability",
-            "expire_after": 30,
-            "icon": "mdi:timer-sand", "device": self._device(),
-        })
         for key, name, icon in [
             ("was_ad", "War Werbung", "mdi:check-circle-outline"),
             ("was_no_ad", "War keine Werbung", "mdi:close-circle-outline"),

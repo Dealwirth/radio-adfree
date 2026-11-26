@@ -202,9 +202,15 @@ class FillerLibrary:
             elif t.duration > predicted + 120:
                 dur_pen = (t.duration - predicted - 120) / 120.0
             bpm_pen = abs((t.bpm or prev_bpm or 120) - (prev_bpm or 120)) / 55.0 if prev_bpm else 0.0
-            energy_pen = abs(t.energy - prev_energy) * 1.4
+            energy_pen = abs(t.energy - prev_energy) * 1.8
+            feel = {f.lower() for f in t.feel}
+            rock_pen = 0.0
+            if "relaxed" in feel or "grooving" in feel:
+                rock_pen += 0.35
+            if "driving" in feel or "bright" in feel or "uplifting" in feel or "bouncy" in feel:
+                rock_pen -= 0.15
             rec_pen = 2.5 if recent.get(t.id) else 0.0
-            score = dur_pen * 1.2 + bpm_pen + energy_pen + rec_pen + random.random() * 0.15
+            score = dur_pen * 0.7 + bpm_pen * 1.8 + energy_pen + rock_pen + rec_pen + random.random() * 0.1
             if score < best_score:
                 best, best_score = t, score
         return best

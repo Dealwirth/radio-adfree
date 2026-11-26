@@ -26,7 +26,7 @@ from .mqtt import MQTTClient
 from .web import StreamHub, create_app
 
 log = logging.getLogger("app")
-VERSION = "1.1.4"
+VERSION = "1.1.5"
 
 
 class App:
@@ -59,6 +59,8 @@ class App:
         self._playing = False
         self._detector_state: dict = {}
         self._icy_stats: dict = {}
+        self._ad_rec_fh = None
+        self._ad_rec_path = ""
         self._last_reconnects = 0
         self._detector_generation = 0
 
@@ -79,6 +81,11 @@ class App:
         self._pump_stop.set()
         if self.icy:
             self.icy.stop()
+        try:
+            if self._ad_rec_fh:
+                self._ad_rec_fh.close()
+        except Exception:
+            pass
         if self.detector:
             self.detector.stop()
         self.engine.stop()
@@ -99,6 +106,11 @@ class App:
         st = self._station
         if self.icy:
             self.icy.stop()
+        try:
+            if self._ad_rec_fh:
+                self._ad_rec_fh.close()
+        except Exception:
+            pass
         self._pump_stop.set()
         self.schedule.clear()
         self.engine.soft_reset()
@@ -153,8 +165,43 @@ class App:
                 next_feed = now
             if next_feed > now:
                 time.sleep(min(next_feed - now, 0.4))
+            self._record_ad_chunk(data)
             self.engine.feed_mp3(data)
             next_feed += dur
+
+    def _record_ad_chunk(self, data: bytes) -> None:
+        if not self.cfg.record_ads:
+            return
+        now = time.monotonic()
+        iv = None
+        for cand in self.schedule.active():
+            if cand.get("start") and cand.get("end") and cand["start"] <= now <= cand["end"]:
+                iv = cand
+                break
+        if iv is None:
+            if self._ad_rec_fh:
+                try:
+                    self._ad_rec_fh.close()
+                except Exception:
+                    pass
+                self._ad_rec_fh = None
+            return
+        if self._ad_rec_fh is None:
+            try:
+                os.makedirs(self.cfg.ads_dir, exist_ok=True)
+                ts = datetime.datetime.now(TZ).strftime("%Y%m%d_%H%M%S")
+                self._ad_rec_path = os.path.join(self.cfg.ads_dir, f"ad_{ts}.mp3")
+                self._ad_rec_fh = open(self._ad_rec_path, "wb")
+                log.info("recording ad: %s", self._ad_rec_path)
+            except Exception:
+                log.exception("ad recording failed")
+                self._ad_rec_fh = None
+                return
+        try:
+            self._ad_rec_fh.write(data)
+        except Exception:
+            log.exception("ad recording write failed")
+            self._ad_rec_fh = None
 
     def _on_icy_status(self, stats: dict) -> None:
         self._icy_stats = stats
@@ -264,6 +311,12 @@ class App:
         return {"stream": stream, "direct": direct, "player": player,
                 "ingress": self._ingress, "host": self._host_ip, "port": self.cfg.port}
 
+    def _ad_list(self) -> list[str]:
+        try:
+            return sorted((p.name for p in Path(self.cfg.ads_dir).glob("*.mp3")), reverse=True)[:20]
+        except Exception:
+            return []
+
     def status(self) -> dict:
         st = self._station
         det = self._detector_state or {}
@@ -331,6 +384,8 @@ class App:
             "engine": eng,
             "icy": icy,
             "urls": urls,
+            "ads": self._ad_list(),
+            "ad_recording": self._ad_rec_path if self._ad_rec_fh else "",
             "filler_library": {
                 "count": len(self.filler_lib.tracks),
                 "licenses": sorted({t.license for t in self.filler_lib.tracks}),
@@ -361,11 +416,6 @@ class App:
                 self.set_station(st["id"])
         elif key == "enabled":
             self.set_enabled(p.upper() in ("ON", "1", "TRUE"))
-        elif key == "delay":
-            try:
-                self.cfg.update(delay=max(5.0, min(10.0, float(p))))
-            except Exception:
-                pass
         elif key == "button_was_ad":
             self.feedback(True)
         elif key == "button_was_no_ad":

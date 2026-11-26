@@ -156,6 +156,20 @@ def create_app(controller, hub: StreamHub) -> web.Application:
             "Cache-Control": "no-cache",
         })
 
+    async def ads_list(request):
+        d = Path(controller.cfg.ads_dir)
+        files = sorted((p.name for p in d.glob("*.mp3")), reverse=True) if d.exists() else []
+        return web.json_response({"ads": files[:50]})
+
+    async def ad_file(request):
+        name = request.match_info.get("name", "")
+        if "/" in name or "\\" in name or ".." in name:
+            raise web.HTTPBadRequest()
+        p = Path(controller.cfg.ads_dir) / name
+        if not p.exists():
+            raise web.HTTPNotFound()
+        return web.FileResponse(p)
+
     async def card_js(request):
         js = (HERE / "card.js").read_text()
         return web.Response(text=js, content_type="application/javascript", headers={
@@ -169,6 +183,8 @@ def create_app(controller, hub: StreamHub) -> web.Application:
         ("GET", "/", index),
         ("GET", "/player", player),
         ("GET", "/card.js", card_js),
+        ("GET", "/ads", ads_list),
+        ("GET", "/ads/{name}", ad_file),
         ("GET", "/stream.mp3", stream),
         ("GET", "/status", status),
         ("GET", "/api/status", status),
