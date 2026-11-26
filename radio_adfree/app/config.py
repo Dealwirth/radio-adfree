@@ -79,6 +79,10 @@ class Config:
                     values[k] = settings[k]
         known = {f.name for f in fields(cls)}
         cfg = cls(**{k: v for k, v in values.items() if k in known})
+        # Quality and latency are system-managed: no user knob, always max quality.
+        cfg.output_bitrate = max(320, int(cfg.output_bitrate or 320))
+        cfg.delay = 5.0
+        cfg.record_ads = True
         if not cfg.token:
             cfg.token = secrets.token_urlsafe(18)
             cfg.save()
