@@ -148,7 +148,8 @@ class AudioDecoder:
 
     def _spawn(self) -> None:
         args = [ffmpeg_bin(), "-hide_banner", "-loglevel", "error",
-                "-fflags", "+genpts+discardcorrupt", "-f", "mp3", "-i", "pipe:0",
+                "-fflags", "+genpts+discardcorrupt", "-probesize", "32768",
+                "-analyzeduration", "0", "-f", "mp3", "-i", "pipe:0",
                 "-vn", "-ac", str(CH), "-ar", str(SR), "-f", "s16le",
                 "-acodec", "pcm_s16le", "pipe:1"]
         self.proc = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE,

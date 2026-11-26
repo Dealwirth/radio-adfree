@@ -39,7 +39,11 @@ class FakeLearner:
         return True, "Test"
 
     def ad_start_minutes(self, station):
+    def ad_start_seconds(self, station):
+        return 0
         return {28: 10, 58: 10}
+    def ad_start_seconds(self, station):
+        return 0
 
     def predict_duration(self, station, now=None):
         return 150.0

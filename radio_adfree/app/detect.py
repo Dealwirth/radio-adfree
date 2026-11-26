@@ -449,9 +449,10 @@ class RBDetector(BaseDetector):
         beginning of the moderation."""
         learned = self.learner.ad_start_minutes(self.station["id"]) if self.learner else {}
         minutes = sorted(learned) if sum(learned.values()) >= 4 else [28, 58]
+        sec = self.learner.ad_start_seconds(self.station["id"]) if self.learner else 0
         best = None
         for m in minutes:
-            cand = start_dt.replace(minute=m % 60, second=0, microsecond=0)
+            cand = start_dt.replace(minute=m % 60, second=sec, microsecond=0)
             if m >= 60:
                 cand += datetime.timedelta(hours=1)
             for off in (-1, 0, 1):
@@ -468,9 +469,10 @@ class RBDetector(BaseDetector):
         the block is the moderation; keep it live and start at the block."""
         learned = self.learner.ad_start_minutes(self.station["id"]) if self.learner else {}
         minutes = sorted(learned) if sum(learned.values()) >= 4 else [28, 58]
+        sec = self.learner.ad_start_seconds(self.station["id"]) if self.learner else 0
         best = None
         for m in minutes:
-            cand = start_dt.replace(minute=m % 60, second=0, microsecond=0)
+            cand = start_dt.replace(minute=m % 60, second=sec, microsecond=0)
             if m >= 60:
                 cand += datetime.timedelta(hours=1)
             if cand < start_dt:

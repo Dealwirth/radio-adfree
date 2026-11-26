@@ -69,6 +69,12 @@ class Learner:
                   source: str, confidence: float, confirmed: int | None = None) -> int:
         dt = datetime.datetime.fromtimestamp(start_wall, TZ)
         dur = max(1.0, end_wall - start_wall)
+        if source not in ("test", "manual"):
+            lo, hi = (40.0, 200.0) if station.startswith("rb-") else (8.0, 120.0)
+            if not (lo <= dur <= hi):
+                log.warning("ignoring implausible %s ad duration %.1fs (source=%s)",
+                            station, dur, source)
+                return 0
         with self.lock:
             cur = self.db.execute(
                 "INSERT INTO ad_events(station,start_wall,end_wall,duration,source,confidence,"
@@ -102,7 +108,8 @@ class Learner:
         with self.lock:
             rows = self.db.execute(
                 "SELECT duration, start_wall FROM ad_events WHERE station=? AND "
-                "(confirmed IS NULL OR confirmed=1) ORDER BY start_wall DESC LIMIT 30",
+                "(confirmed IS NULL OR confirmed=1) AND duration BETWEEN 40 AND 200 "
+                "ORDER BY start_wall DESC LIMIT 30",
                 (station,)).fetchall()
         if not rows:
             return 150.0 if station.startswith("rb-") else 120.0
@@ -134,6 +141,21 @@ class Learner:
                 "AND (confirmed IS NULL OR confirmed=1) GROUP BY minute ORDER BY n DESC",
                 (station, since)).fetchall()
         return {int(r["minute"]): int(r["n"]) for r in rows}
+
+    def ad_start_seconds(self, station: str, days: int = 30) -> int:
+        """Median second-of-minute of recent plausible blocks (e.g. 26 for :28:26)."""
+        since = time.time() - days * 86400
+        lo, hi = (40.0, 200.0) if station.startswith("rb-") else (8.0, 120.0)
+        with self.lock:
+            rows = self.db.execute(
+                "SELECT start_wall FROM ad_events WHERE station=? AND start_wall>? "
+                "AND (confirmed IS NULL OR confirmed=1) AND duration BETWEEN ? AND ? "
+                "ORDER BY start_wall DESC LIMIT 30",
+                (station, since, lo, hi)).fetchall()
+        if not rows:
+            return 0
+        secs = sorted(datetime.datetime.fromtimestamp(r["start_wall"], TZ).second for r in rows)
+        return int(secs[len(secs) // 2])
 
     def is_ad_window(self, station: str, dt: datetime.datetime, tolerance: int = 6) -> tuple[bool, str]:
         learned = self.ad_start_minutes(station)
