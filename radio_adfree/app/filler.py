@@ -25,6 +25,14 @@ FEEL_ENERGY = {
 AUDIO_EXT = {".mp3", ".flac", ".m4a", ".ogg", ".opus", ".wav", ".aac"}
 
 
+def _bpm_dist(a: float, b: float) -> float:
+    """Octave-invariant tempo distance (handles half/double-time estimates)."""
+    if not a or not b:
+        return 0.0
+    return min(abs(a - b), abs(a - 2 * b), abs(2 * a - b),
+               abs(a - b / 2), abs(a / 2 - b))
+
+
 def ffmpeg_bin() -> str:
     return os.environ.get("FFMPEG") or shutil.which("ffmpeg") or "/usr/bin/ffmpeg"
 
@@ -209,7 +217,7 @@ class FillerLibrary:
                 dur_pen = (predicted + 15 - t.duration) / 60.0
             elif t.duration > predicted + 120:
                 dur_pen = (t.duration - predicted - 120) / 120.0
-            bpm_pen = abs((t.bpm or prev_bpm or 120) - (prev_bpm or 120)) / 25.0 if prev_bpm else 0.0
+            bpm_pen = _bpm_dist(t.bpm or prev_bpm or 120, prev_bpm or 120) / 25.0 if prev_bpm else 0.0
             energy_pen = abs(t.energy - prev_energy) * 3.0
             feel = {f.lower() for f in t.feel}
             rock_pen = 0.0
@@ -285,7 +293,7 @@ class FillerPlayer:
             with self.lock:
                 if gen != self.generation:
                     return
-                gain = float(np.clip(10.0 ** ((target_db - rms_db) / 20.0), 0.05, 2.0))
+                gain = float(np.clip(10.0 ** ((min(-13.0, max(-16.0, target_db)) - rms_db) / 20.0), 0.05, 2.0))
                 self.current = {"track": track, "pcm": pcm, "start_ts": start_ts,
                                 "predicted": predicted, "prev_bpm": prev_bpm,
                                 "prev_energy": prev_energy, "next_requested": False,

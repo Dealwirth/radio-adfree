@@ -1,5 +1,5 @@
 name: "Radio AdFree"
-version: "1.1.7"
+version: "1.1.8"
 slug: "radio_adfree"
 description: "Werbefreies Radio Bob & Rock Antenne mit intelligentem Crossfade-Ersatz, Lernsystem und HA-Dashboard."
 url: "https://github.com/Dealwirth/radio-adfree"
@@ -34,6 +34,8 @@ options:
   target_service: "media_player"
   output_bitrate: 320
   record_ads: true
+  stream_enabled: true
+  stream_idle_stop: 600
   port: 18097
 schema:
   station: str
@@ -50,4 +52,6 @@ schema:
   target_service: str
   output_bitrate: int(128,320)
   record_ads: bool
+  stream_enabled: bool
+  stream_idle_stop: int(0,3600)
   port: port

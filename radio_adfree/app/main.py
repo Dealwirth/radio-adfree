@@ -26,7 +26,7 @@ from .mqtt import MQTTClient
 from .web import StreamHub, create_app
 
 log = logging.getLogger("app")
-VERSION = "1.1.7"
+VERSION = "1.1.8"
 
 
 class App:
@@ -63,13 +63,18 @@ class App:
         self._ad_rec_path = ""
         self._last_reconnects = 0
         self._detector_generation = 0
+        self._stream_clients = 0
+        self._last_stream = 0.0
+        self._station_live = False
 
     # ---------------- lifecycle ----------------
     def start_background(self) -> None:
         self._refresh_ha()
         threading.Thread(target=self._filler_boot, daemon=True).start()
         self.engine.start()
-        self._start_station()
+        if self.cfg.stream_enabled and not self.cfg.stream_idle_stop:
+            self._start_station()
+        threading.Thread(target=self._stream_guard, daemon=True).start()
         self.mqtt.start()
         threading.Thread(target=self._status_loop, daemon=True).start()
         threading.Thread(target=self._ha_loop, daemon=True).start()
@@ -89,6 +94,7 @@ class App:
         if self.detector:
             self.detector.stop()
         self.engine.stop()
+        self._station_live = False
         try:
             self.mqtt._pub("radio_adfree/availability", "offline")
             self.mqtt.stop()
@@ -136,6 +142,38 @@ class App:
         self.icy = ICYStream(st["stream"], self.audio_q, on_meta=self._on_meta,
                              on_status=self._on_icy_status)
         self.icy.start()
+        self._station_live = True
+
+    def touch_stream(self, connected: bool) -> None:
+        self._last_stream = time.time()
+        if connected:
+            self._stream_clients += 1
+            if not self._station_live and self.cfg.stream_enabled:
+                self._start_station()
+        else:
+            self._stream_clients = max(0, self._stream_clients - 1)
+
+    def _stream_guard(self) -> None:
+        """Only pull the radio when someone listens (or the stream is always-on)."""
+        while not self._stop.is_set():
+            time.sleep(5)
+            try:
+                active = self._stream_clients > 0
+                idle = (self.cfg.stream_idle_stop > 0 and
+                        time.time() - self._last_stream > self.cfg.stream_idle_stop)
+                if not self.cfg.stream_enabled or (not active and idle):
+                    if self._station_live:
+                        if self.icy:
+                            self.icy.stop()
+                        if self.detector:
+                            self.detector.stop()
+                        self._station_live = False
+                        log.info("radio pull stopped (disabled/idle) - saving data")
+                elif not self._station_live:
+                    self._start_station()
+                    log.info("radio pull started (stream client)")
+            except Exception:
+                log.exception("stream guard failed")
 
     def _audio_pump(self) -> None:
         """Feed MP3 bytes at the real stream bitrate.

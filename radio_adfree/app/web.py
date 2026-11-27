@@ -72,6 +72,11 @@ def create_app(controller, hub: StreamHub) -> web.Application:
         return resp
 
     async def stream(request):
+        if not controller.cfg.stream_enabled:
+            resp = web.Response(status=503, text="stream disabled")
+            _cors(resp)
+            return resp
+        controller.touch_stream(True)
         resp = web.StreamResponse(status=200, headers={
             "Content-Type": "audio/mpeg",
             "Cache-Control": "no-cache, no-store, must-revalidate",
@@ -94,6 +99,7 @@ def create_app(controller, hub: StreamHub) -> web.Application:
             log.debug("stream client error: %s", exc)
         finally:
             hub.unsubscribe(q)
+            controller.touch_stream(False)
             log.info("stream client disconnected (%s total)", len(hub.clients))
         return resp
 

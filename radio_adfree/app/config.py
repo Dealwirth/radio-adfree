@@ -40,6 +40,8 @@ class Config:
     output_bitrate: int = 320
     record_ads: bool = True
     ads_dir: str = "/data/ads"
+    stream_enabled: bool = True
+    stream_idle_stop: int = 600
     port: int = 18097
     token: str = ""
     mqtt_enabled: bool = True
