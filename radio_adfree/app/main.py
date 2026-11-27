@@ -26,7 +26,7 @@ from .mqtt import MQTTClient
 from .web import StreamHub, create_app
 
 log = logging.getLogger("app")
-VERSION = "1.1.10"
+VERSION = "1.1.11"
 
 
 class App:

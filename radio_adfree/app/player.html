@@ -195,8 +195,8 @@ async function poll(){
     $('delay').textContent = (d.delay?.actual ?? d.engine?.delay_actual ?? '–') + ' s';
     $('rtitle').textContent = d.radio?.title || '–';
     $('rartist').textContent = d.radio?.artist || '–';
-    $('ftitle').textContent = d.filler?.title || '–';
-    $('fartist').textContent = d.filler?.artist || '–';
+    $('ftitle').textContent = (d.filler_active && d.filler?.title) || '–';
+    $('fartist').textContent = (d.filler_active && d.filler?.artist) || '–';
     const ad = d.ad || {};
     const on = !!ad.active;
     $('adbox').classList.toggle('on', on);
