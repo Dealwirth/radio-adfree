@@ -301,6 +301,13 @@ class FillerPlayer:
                 self.next = None
                 log.info("filler gain: %s rms=%.1f dB target=%.1f dB gain=%.2f",
                          track.title, rms_db, target_db, gain)
+            if self.library.learner:
+                try:
+                    self.library.learner.record_filler_play(
+                        self.library.cfg.station, track.id, track.title,
+                        start_ts, 0.0, False)
+                except Exception:
+                    pass
 
         threading.Thread(target=load, daemon=True).start()
 

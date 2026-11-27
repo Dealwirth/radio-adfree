@@ -26,7 +26,7 @@ from .mqtt import MQTTClient
 from .web import StreamHub, create_app
 
 log = logging.getLogger("app")
-VERSION = "1.1.9"
+VERSION = "1.1.10"
 
 
 class App:
@@ -75,7 +75,6 @@ class App:
         if self.cfg.stream_enabled and not self.cfg.stream_idle_stop:
             self._start_station()
         threading.Thread(target=self._stream_guard, daemon=True).start()
-        threading.Thread(target=self._filler_log_loop, daemon=True).start()
         self.mqtt.start()
         threading.Thread(target=self._status_loop, daemon=True).start()
         threading.Thread(target=self._ha_loop, daemon=True).start()
