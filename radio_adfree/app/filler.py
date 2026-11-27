@@ -193,24 +193,32 @@ class FillerLibrary:
                 recent = self.learner.recent_filler_plays(minutes=90)
             except Exception:
                 recent = {}
+        bad_feel = {"relaxed", "grooving", "funny", "sentimental", "peaceful"}
+
+        def eligible(t):
+            f = {x.lower() for x in t.feel}
+            return (t.energy >= 0.45 and 90 <= (t.bpm or 0) <= 175
+                    and not (f & bad_feel))
+
+        pool = [t for t in tracks if eligible(t)] or tracks
         best = None
         best_score = 1e9
-        for t in tracks:
+        for t in pool:
             dur_pen = 0.0
             if t.duration < predicted + 15:
                 dur_pen = (predicted + 15 - t.duration) / 60.0
             elif t.duration > predicted + 120:
                 dur_pen = (t.duration - predicted - 120) / 120.0
-            bpm_pen = abs((t.bpm or prev_bpm or 120) - (prev_bpm or 120)) / 55.0 if prev_bpm else 0.0
-            energy_pen = abs(t.energy - prev_energy) * 1.8
+            bpm_pen = abs((t.bpm or prev_bpm or 120) - (prev_bpm or 120)) / 25.0 if prev_bpm else 0.0
+            energy_pen = abs(t.energy - prev_energy) * 3.0
             feel = {f.lower() for f in t.feel}
             rock_pen = 0.0
-            if "relaxed" in feel or "grooving" in feel:
-                rock_pen += 0.35
-            if "driving" in feel or "bright" in feel or "uplifting" in feel or "bouncy" in feel:
-                rock_pen -= 0.15
+            if "driving" in feel or "dark" in feel or "bright" in feel or "uplifting" in feel:
+                rock_pen -= 0.2
+            if "bouncy" in feel:
+                rock_pen += 0.3
             rec_pen = 2.5 if recent.get(t.id) else 0.0
-            score = dur_pen * 0.7 + bpm_pen * 1.8 + energy_pen + rock_pen + rec_pen + random.random() * 0.1
+            score = dur_pen * 0.4 + bpm_pen * 2.5 + energy_pen + rock_pen + rec_pen + random.random() * 0.02
             if score < best_score:
                 best, best_score = t, score
         return best
