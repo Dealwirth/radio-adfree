@@ -26,7 +26,7 @@ from .mqtt import MQTTClient
 from .web import StreamHub, create_app
 
 log = logging.getLogger("app")
-VERSION = "1.1.8"
+VERSION = "1.1.9"
 
 
 class App:
@@ -75,6 +75,7 @@ class App:
         if self.cfg.stream_enabled and not self.cfg.stream_idle_stop:
             self._start_station()
         threading.Thread(target=self._stream_guard, daemon=True).start()
+        threading.Thread(target=self._filler_log_loop, daemon=True).start()
         self.mqtt.start()
         threading.Thread(target=self._status_loop, daemon=True).start()
         threading.Thread(target=self._ha_loop, daemon=True).start()
@@ -100,6 +101,26 @@ class App:
             self.mqtt.stop()
         except Exception:
             pass
+
+    def _filler_log_loop(self) -> None:
+        last_id = None
+        last_start = 0.0
+        last_title = ""
+        while not self._stop.is_set():
+            time.sleep(1)
+            try:
+                t = self.engine.filler.active_track()
+                if t and t.id != last_id:
+                    if last_id:
+                        self.learner.record_filler_play(self.cfg.station, last_id, last_title,
+                                                        last_start, time.time() - last_start, False)
+                    last_id, last_start, last_title = t.id, time.time(), t.title
+                elif not t and last_id:
+                    self.learner.record_filler_play(self.cfg.station, last_id, last_title,
+                                                    last_start, time.time() - last_start, True)
+                    last_id = None
+            except Exception:
+                pass
 
     def _filler_boot(self) -> None:
         try:
@@ -155,12 +176,24 @@ class App:
 
     def _stream_guard(self) -> None:
         """Only pull the radio when someone listens (or the stream is always-on)."""
+        down_since = 0.0
         while not self._stop.is_set():
             time.sleep(5)
             try:
-                active = self._stream_clients > 0
+                active = self._stream_clients > 0 or self._playing
                 idle = (self.cfg.stream_idle_stop > 0 and
                         time.time() - self._last_stream > self.cfg.stream_idle_stop)
+                conn = bool(self._icy_stats.get("connected"))
+                if self._station_live and not conn:
+                    if not down_since:
+                        down_since = time.time()
+                    elif time.time() - down_since > 30:
+                        if self.schedule.active():
+                            self.schedule.clear()
+                            log.info("radio down >30s: ad cancelled (filler stopped)")
+                        down_since = time.time()
+                else:
+                    down_since = 0.0
                 if not self.cfg.stream_enabled or (not active and idle):
                     if self._station_live:
                         if self.icy:
@@ -483,6 +516,8 @@ class App:
             return
         try:
             if action == "play":
+                if not self._station_live and self.cfg.stream_enabled:
+                    self._start_station()
                 ha.play_media(self.cfg.target_player, self._urls()["direct"], self.cfg.target_service)
             elif action == "stop":
                 ha.stop_media(self.cfg.target_player, self.cfg.target_service)
