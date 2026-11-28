@@ -290,10 +290,14 @@ class RadioAdFreeCard extends HTMLElement {
   }
 }
 
-customElements.define("radio-adfree-card", RadioAdFreeCard);
+if (!customElements.get("radio-adfree-card")) {
+  customElements.define("radio-adfree-card", RadioAdFreeCard);
+}
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "radio-adfree-card",
-  name: "Radio AdFree",
-  description: "Werbefreies Radio Bob / Rock Antenne mit Crossfade-Filler und Lernstatus.",
-});
+if (!window.customCards.some((c) => c.type === "radio-adfree-card")) {
+  window.customCards.push({
+    type: "radio-adfree-card",
+    name: "Radio AdFree",
+    description: "Werbefreies Radio Bob / Rock Antenne mit Crossfade-Filler und Lernstatus.",
+  });
+}
