@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import queue
+import shutil
 import threading
 import time
 import urllib.request
@@ -26,7 +27,7 @@ from .mqtt import MQTTClient
 from .web import StreamHub, create_app
 
 log = logging.getLogger("app")
-VERSION = "1.1.11"
+VERSION = "1.1.12"
 
 
 class App:
@@ -75,6 +76,7 @@ class App:
         if self.cfg.stream_enabled and not self.cfg.stream_idle_stop:
             self._start_station()
         threading.Thread(target=self._stream_guard, daemon=True).start()
+        threading.Thread(target=self._install_card, daemon=True).start()
         self.mqtt.start()
         threading.Thread(target=self._status_loop, daemon=True).start()
         threading.Thread(target=self._ha_loop, daemon=True).start()
@@ -120,6 +122,16 @@ class App:
                     last_id = None
             except Exception:
                 pass
+
+    def _install_card(self) -> None:
+        try:
+            src = Path(__file__).parent / "card.js"
+            dst_dir = Path("/config/www/radio-adfree")
+            dst_dir.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, dst_dir / "card.js")
+            log.info("card.js installed at /config/www/radio-adfree/card.js")
+        except Exception:
+            log.debug("card install skipped", exc_info=True)
 
     def _filler_boot(self) -> None:
         try:
